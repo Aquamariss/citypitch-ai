@@ -2,105 +2,241 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { route } from 'ziggy-js';
 import TranscriptPlayer from '@/Components/TranscriptPlayer';
+import { motion } from 'framer-motion';
+import { CheckCircle, XCircle, Download, Video, ChevronRight, Brain } from 'lucide-react';
 
-// SVG Icons
-const CheckIcon = () => <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>;
-const XMarkIcon = () => <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>;
-const DownloadIcon = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>;
-const VideoIcon = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>;
-const PieChartIcon = () => <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>;
-const AlignLeftIcon = () => <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>;
-const RobotIcon = () => <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>;
+/* ─── Score Ring (SVG) ─── */
+function ScoreRing({ score, maxScore }) {
+    const pct = maxScore > 0 ? score / maxScore : 0;
+    const isGood = pct >= 0.7;
+    const isMedium = pct >= 0.4;
+    const color = isGood ? '#10b981' : isMedium ? '#f59e0b' : '#ef4444';
+
+    const size = 56;
+    const strokeWidth = 4;
+    const r = (size - strokeWidth) / 2;
+    const circ = 2 * Math.PI * r;
+    const dashOffset = circ - circ * pct;
+
+    return (
+        <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+            <svg width={size} height={size} className="-rotate-90">
+                <circle
+                    cx={size / 2} cy={size / 2} r={r}
+                    fill="none"
+                    stroke="rgba(255,255,255,0.06)"
+                    strokeWidth={strokeWidth}
+                />
+                <circle
+                    cx={size / 2} cy={size / 2} r={r}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth={strokeWidth}
+                    strokeLinecap="round"
+                    strokeDasharray={circ}
+                    strokeDashoffset={dashOffset}
+                    style={{
+                        transition: 'stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1)',
+                    }}
+                />
+            </svg>
+            <span
+                className="absolute text-xs font-bold font-mono"
+                style={{ color }}
+            >
+                {score}/{maxScore}
+            </span>
+        </div>
+    );
+}
+
+/* ─── Criterion Card ─── */
+function CriterionCard({ criterion, index }) {
+    const { name, score, maxScore, feedback } = criterion;
+    const pct = maxScore > 0 ? score / maxScore : 0;
+    const isGood = pct >= 0.7;
+    const isMedium = pct >= 0.4;
+    const color = isGood ? '#10b981' : isMedium ? '#f59e0b' : '#ef4444';
+    const colorSubtle = isGood ? 'rgba(16,185,129,0.08)' : isMedium ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)';
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 + index * 0.07, duration: 0.35, ease: 'easeOut' }}
+            className="p-4 rounded-2xl flex flex-col gap-3"
+            style={{
+                backgroundColor: 'var(--bg-card)',
+                border: '1px solid var(--border-subtle)',
+            }}
+        >
+            <div className="flex items-start gap-3">
+                <ScoreRing score={score} maxScore={maxScore} />
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                        <h4 className="text-sm font-semibold text-zinc-200 truncate">{name}</h4>
+                        <span
+                            className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0"
+                            style={{ backgroundColor: colorSubtle, color }}
+                        >
+                            {Math.round(pct * 100)}%
+                        </span>
+                    </div>
+                    {/* Mini progress bar */}
+                    <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg-elevated)' }}>
+                        <motion.div
+                            className="h-full rounded-full"
+                            initial={{ width: 0 }}
+                            animate={{ width: `${Math.min(pct * 100, 100)}%` }}
+                            transition={{ delay: 0.2 + index * 0.07, duration: 0.7, ease: 'easeOut' }}
+                            style={{ backgroundColor: color }}
+                        />
+                    </div>
+                </div>
+            </div>
+            <p className="text-xs text-zinc-500 leading-relaxed">{feedback}</p>
+        </motion.div>
+    );
+}
 
 export default function Result() {
     const { result, media_type } = usePage().props;
     const { analysis, transcription, videoUrl, id } = result;
 
+    const totalScore = analysis.criteria?.reduce((s, c) => s + (c.score || 0), 0) ?? 0;
+    const totalMax   = analysis.criteria?.reduce((s, c) => s + (c.maxScore || 0), 0) ?? 0;
+    const totalPct   = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 0;
+
     return (
         <AppLayout>
             <Head title={analysis.name ? `${analysis.name} — результат` : 'Результаты питча'} />
 
-            <div className="py-8 bg-slate-100 min-h-screen">
-                <div className="max-w-5xl mx-auto sm:px-6 lg:px-8">
-                    
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                        {/* Заголовок и вердикт */}
-                        <div className="p-5 border-b border-slate-200 flex flex-wrap gap-4 justify-between items-center bg-slate-50 shrink-0">
-                            <div className="flex items-center gap-4">
-                                <h2 className="font-bold text-xl text-slate-800">{analysis.name || 'Результат анализа'}</h2>
-                                <span className={`px-4 py-1.5 text-sm font-bold rounded-full border flex items-center ${analysis.isPassed ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
-                                    {analysis.isPassed ? <><CheckIcon /> ПРИНЯТО</> : <><XMarkIcon /> НЕ ПРИНЯТО</>}
-                                </span>
-                            </div>
-                            <div className="flex gap-3">
-                                <a 
-                                    href={route('pitch.download', { pitchId: id })} 
-                                    download 
-                                    className="px-5 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 hover:text-blue-600 transition text-sm font-semibold flex items-center gap-2 shadow-sm"
-                                >
-                                    <DownloadIcon /> {media_type === 'audio' ? 'Скачать аудио' : 'Скачать видео'}
-                                </a>
-                                <Link 
-                                    href={route('pitch.index')} 
-                                    className="px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition text-sm font-semibold flex items-center gap-2 shadow-sm"
-                                >
-                                    <VideoIcon /> Новая попытка
-                                </Link>
-                            </div>
-                        </div>
+            <div className="p-4 md:p-6 max-w-6xl mx-auto">
+                {/* Breadcrumb */}
+                <nav className="flex items-center gap-1.5 text-xs mb-5" style={{ color: 'var(--text-muted)' }}>
+                    <Link href={`${route('pitch.index')}?tab=history`} className="hover:text-zinc-300 transition-colors">
+                        История
+                    </Link>
+                    <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.5} />
+                    <span style={{ color: 'var(--text-secondary)' }}>{analysis.name || 'Результат'}</span>
+                </nav>
 
-                        {/* Основной контент */}
-                        <div className="p-6">
-                            {/* Медиаплеер и Транскрипт */}
-                            <div className="mb-8">
-                                <TranscriptPlayer 
-                                    mediaUrl={videoUrl} 
-                                    transcript={transcription.segments || []} 
-                                    mediaType={media_type} 
-                                    duration={transcription.duration}
-                                />
+                {/* Header */}
+                <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.35 }}
+                    className="flex flex-wrap items-center justify-between gap-4 mb-6"
+                >
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <h1 className="text-xl font-bold text-zinc-100">
+                            {analysis.name || 'Результат анализа'}
+                        </h1>
+                        <span
+                            className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold"
+                            style={analysis.isPassed
+                                ? { backgroundColor: 'rgba(16,185,129,0.12)', color: '#10b981', border: '1px solid rgba(16,185,129,0.25)' }
+                                : { backgroundColor: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }
+                            }
+                        >
+                            {analysis.isPassed
+                                ? <><CheckCircle className="w-3.5 h-3.5" strokeWidth={2} /> ПРИНЯТО</>
+                                : <><XCircle className="w-3.5 h-3.5" strokeWidth={2} /> НЕ ПРИНЯТО</>
+                            }
+                        </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <a
+                            href={route('pitch.download', { pitchId: id })}
+                            download
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200"
+                            style={{
+                                backgroundColor: 'var(--bg-elevated)',
+                                color: 'var(--text-secondary)',
+                                border: '1px solid var(--border-default)',
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--border-strong)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.borderColor = 'var(--border-default)'; }}
+                        >
+                            <Download className="w-4 h-4" strokeWidth={1.5} />
+                            {media_type === 'audio' ? 'Аудио' : 'Видео'}
+                        </a>
+                        <Link
+                            href={route('pitch.index')}
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all hover:scale-[1.02] active:scale-95"
+                            style={{ backgroundColor: 'var(--accent-primary)', boxShadow: '0 0 16px var(--accent-glow)' }}
+                        >
+                            <Video className="w-4 h-4" strokeWidth={1.5} />
+                            Новая попытка
+                        </Link>
+                    </div>
+                </motion.div>
+
+                {/* Main Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                    {/* Left: Player + Transcript */}
+                    <div className="lg:col-span-3 flex flex-col gap-6">
+                        <TranscriptPlayer
+                            mediaUrl={videoUrl}
+                            transcript={transcription.segments || []}
+                            mediaType={media_type}
+                            duration={transcription.duration}
+                        />
+                    </div>
+
+                    {/* Right: AI Feedback */}
+                    <div className="lg:col-span-2 flex flex-col gap-4">
+                        {/* Overall Score */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.4 }}
+                            className="rounded-2xl p-5"
+                            style={{
+                                background: 'linear-gradient(135deg, rgba(124,58,237,0.12), rgba(6,182,212,0.08))',
+                                border: '1px solid rgba(124,58,237,0.2)',
+                            }}
+                        >
+                            <div className="flex items-center gap-4 mb-4">
+                                <div
+                                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                                    style={{ background: 'linear-gradient(135deg, #7c3aed, #06b6d4)' }}
+                                >
+                                    <Brain className="w-5 h-5 text-white" strokeWidth={1.5} />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-bold text-zinc-100">Резюме ИИ</h3>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                        <span className="text-2xl font-bold font-mono" style={{ color: analysis.isPassed ? '#10b981' : '#ef4444' }}>
+                                            {totalPct}%
+                                        </span>
+                                        <span className="text-xs text-zinc-500">общий балл</span>
+                                    </div>
+                                </div>
                             </div>
 
-                            {/* Обратная связь */}
-                            <div>
-                                <div className="flex gap-6 border-b border-slate-200 mb-6 px-2">
-                                    <h3 className="pb-3 font-semibold text-lg text-slate-800 flex items-center">
-                                        <PieChartIcon /> Обратная связь ИИ
-                                    </h3>
-                                </div>
-                                
-                                <div className="flex flex-col gap-6 animate-fade-in">
-                                    <div className="p-5 bg-blue-50/50 border border-blue-100 rounded-2xl text-blue-900 text-sm leading-relaxed shadow-sm">
-                                        <h4 className="font-bold mb-3 flex items-center gap-2"><RobotIcon /> Резюме ИИ</h4>
-                                        <p className="text-base text-blue-950">{analysis.summary}</p>
-                                        <p className="text-base text-blue-950 mt-2">{analysis.overallFeedback}</p>
-                                    </div>
-                                    
-                                    <h4 className="font-bold text-slate-800 text-lg">Детальный разбор</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                        {analysis.criteria.map((c, i) => {
-                                            const scoreColor = c.score >= (c.maxScore * 0.7) ? 'bg-emerald-500' : (c.score >= (c.maxScore * 0.4) ? 'bg-amber-500' : 'bg-rose-500');
-                                            const iconBg = c.score >= (c.maxScore * 0.7) ? 'bg-emerald-100 text-emerald-600' : (c.score >= (c.maxScore * 0.4) ? 'bg-amber-100 text-amber-600' : 'bg-rose-100 text-rose-600');
-                                            
-                                            return (
-                                                <div key={i} className="p-5 border border-slate-200 rounded-2xl bg-white shadow-sm hover:shadow-md transition">
-                                                    <div className="flex justify-between items-center mb-4">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${iconBg}`}>
-                                                                {c.score >= (c.maxScore * 0.7) ? <CheckIcon /> : (c.score >= (c.maxScore * 0.4) ? <span className="font-bold text-xl">!</span> : <XMarkIcon />)}
-                                                            </div>
-                                                            <span className="font-bold text-slate-800 text-base">{c.name}</span>
-                                                        </div>
-                                                        <span className={`text-xs font-bold px-3 py-1 rounded-full text-white shadow-sm ${scoreColor}`}>
-                                                            {c.score} / {c.maxScore}
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-sm text-slate-600 leading-relaxed">{c.feedback}</p>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
+                            {analysis.summary && (
+                                <p className="text-sm text-zinc-400 leading-relaxed mb-3">
+                                    {analysis.summary}
+                                </p>
+                            )}
+                            {analysis.overallFeedback && (
+                                <p className="text-sm text-zinc-500 leading-relaxed">
+                                    {analysis.overallFeedback}
+                                </p>
+                            )}
+                        </motion.div>
+
+                        {/* Criteria */}
+                        <div>
+                            <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 px-1">
+                                Детальный разбор
+                            </h3>
+                            <div className="flex flex-col gap-3">
+                                {(analysis.criteria || []).map((c, i) => (
+                                    <CriterionCard key={i} criterion={c} index={i} />
+                                ))}
                             </div>
                         </div>
                     </div>
