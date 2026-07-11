@@ -17,8 +17,10 @@
         "@inertiajs/react": "^3.6.1",
         "@vitejs/plugin-react": "^6.0.3",
         "axios": "^1.18.1",
+        "lucide-react": "^1.24.0",
         "react": "^19.2.7",
         "react-dom": "^19.2.7",
+        "react-player": "^3.4.0",
         "react-record-webcam": "^2.0.1",
         "ziggy-js": "^2.6.3"
     }

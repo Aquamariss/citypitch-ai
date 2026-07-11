@@ -137,6 +137,7 @@ class PitchingService
             text: $pitch->transcription['text'] ?? '',
             duration: $pitch->transcription['duration'] ?? 0,
             language: $pitch->transcription['language'] ?? 'ru',
+            segments: $pitch->transcription['segments'] ?? [],
         );
 
         $analysis = new PitchAnalysisResult(
