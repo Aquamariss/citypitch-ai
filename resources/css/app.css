@@ -27,11 +27,13 @@
 /* ===========================
    CSS Custom Properties
    =========================== */
-:root {
+:root,
+[data-theme='dark'] {
     --bg-base:        #09090b;
     --bg-card:        #0f0f12;
     --bg-elevated:    #1a1a24;
     --bg-overlay:     #18181d;
+    --mobile-header-bg: rgba(9, 9, 11, 0.8);
 
     --border-subtle:  #27272a;
     --border-default: #3f3f46;
@@ -58,6 +60,65 @@
 
     --ai-primary:     #06b6d4;
     --ai-secondary:   #7c3aed;
+}
+
+[data-theme='light'] {
+    --bg-base:        #fafafa;
+    --bg-card:        #ffffff;
+    --bg-elevated:    #f4f4f5;
+    --bg-overlay:     #ffffff;
+    --mobile-header-bg: rgba(255, 255, 255, 0.88);
+
+    --border-subtle:  #e4e4e7;
+    --border-default: #d4d4d8;
+    --border-strong:  #a1a1aa;
+
+    --text-primary:   #18181b;
+    --text-secondary: #52525b;
+    --text-muted:     #a1a1aa;
+
+    --accent-primary: #7c3aed;
+    --accent-hover:   #6d28d9;
+    --accent-glow:    rgba(124, 58, 237, 0.25);
+    --accent-subtle:  rgba(124, 58, 237, 0.08);
+
+    --success:        #059669;
+    --success-subtle: rgba(16, 185, 129, 0.12);
+    --warning:        #d97706;
+    --warning-subtle: rgba(245, 158, 11, 0.12);
+    --danger:         #dc2626;
+    --danger-subtle:  rgba(239, 68, 68, 0.10);
+
+    --record-active:  #ef4444;
+    --record-pulse:   rgba(239, 68, 68, 0.3);
+
+    --ai-primary:     #0891b2;
+    --ai-secondary:   #7c3aed;
+}
+
+/* Tailwind zinc utilities — light theme overrides */
+[data-theme='light'] .text-zinc-100 { color: #18181b; }
+[data-theme='light'] .text-zinc-200 { color: #27272a; }
+[data-theme='light'] .text-zinc-300 { color: #3f3f46; }
+[data-theme='light'] .text-zinc-400 { color: #52525b; }
+[data-theme='light'] .text-zinc-500 { color: #71717a; }
+[data-theme='light'] .text-zinc-600 { color: #a1a1aa; }
+[data-theme='light'] .hover\:text-zinc-100:hover { color: #18181b; }
+[data-theme='light'] .hover\:text-zinc-300:hover { color: #3f3f46; }
+[data-theme='light'] .hover\:text-white:hover { color: #18181b; }
+[data-theme='light'] .group:hover .group-hover\:text-zinc-300 { color: #3f3f46; }
+[data-theme='light'] .group:hover .group-hover\:text-white { color: #18181b; }
+[data-theme='light'] .bg-zinc-800 { background-color: #e4e4e7; }
+[data-theme='light'] .bg-zinc-900 { background-color: #ffffff; }
+[data-theme='light'] .hover\:bg-white\/5:hover { background-color: rgba(24, 24, 27, 0.05); }
+[data-theme='light'] .hover\:bg-white\/20:hover { background-color: rgba(24, 24, 27, 0.08); }
+
+[data-theme='light'] .login-page-glow {
+    background: radial-gradient(ellipse 60% 50% at 50% 40%, rgba(124, 58, 237, 0.06) 0%, transparent 70%) !important;
+}
+
+[data-theme='light'] .login-page-grid {
+    opacity: 0.06 !important;
 }
 
 /* ===========================

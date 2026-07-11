@@ -2,6 +2,7 @@ import { Head, useForm, usePage } from '@inertiajs/react';
 import { route } from 'ziggy-js';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Zap, Mail, Hash, ArrowRight, Loader2 } from 'lucide-react';
+import ThemeToggle from '@/Components/ThemeToggle';
 
 export default function Login() {
     const { status } = usePage().props;
@@ -29,9 +30,13 @@ export default function Login() {
         >
             <Head title="Вход — Pitch AI" />
 
+            <div className="absolute top-4 right-4 z-10">
+                <ThemeToggle variant="compact" />
+            </div>
+
             {/* Background glow */}
             <div
-                className="absolute inset-0 pointer-events-none"
+                className="absolute inset-0 pointer-events-none login-page-glow"
                 style={{
                     background: 'radial-gradient(ellipse 60% 50% at 50% 40%, rgba(124,58,237,0.08) 0%, transparent 70%)',
                 }}
@@ -39,7 +44,7 @@ export default function Login() {
 
             {/* Subtle grid pattern */}
             <div
-                className="absolute inset-0 pointer-events-none opacity-[0.03]"
+                className="absolute inset-0 pointer-events-none opacity-[0.03] login-page-grid"
                 style={{
                     backgroundImage: 'linear-gradient(var(--border-default) 1px, transparent 1px), linear-gradient(90deg, var(--border-default) 1px, transparent 1px)',
                     backgroundSize: '48px 48px',

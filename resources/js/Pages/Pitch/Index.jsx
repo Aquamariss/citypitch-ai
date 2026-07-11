@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, usePage, Link } from '@inertiajs/react';
 import PitchRecorder from '@/Components/PitchRecorder';
@@ -174,15 +174,17 @@ function ProgressChart({ pitches }) {
 
 /* ─── Main Page ─── */
 export default function Index() {
-    const { default_duration, attempts_used, max_attempts, history_pitches = [] } = usePage().props;
+    const { props, url } = usePage();
+    const { default_duration, attempts_used, max_attempts, history_pitches = [] } = props;
     const canAttempt = attempts_used < max_attempts;
     const [isRecording, setIsRecording] = useState(false);
 
-    const [activeTab, setActiveTab] = useState('recorder');
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        setActiveTab(params.get('tab') || 'recorder');
-    }, []);
+    const activeTab = useMemo(() => {
+        const search = url.includes('?') ? url.split('?')[1] : '';
+        const tab = new URLSearchParams(search).get('tab');
+
+        return tab === 'history' ? 'history' : 'recorder';
+    }, [url]);
 
     return (
         <AppLayout>

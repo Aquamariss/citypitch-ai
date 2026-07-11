@@ -1,6 +1,7 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import { route } from 'ziggy-js';
-import { Mic, Clock, LayoutDashboard, LogOut, Zap } from 'lucide-react';
+import { Mic, Clock, LogOut, Zap } from 'lucide-react';
+import ThemeToggle from '@/Components/ThemeToggle';
 
 const navItems = [
     {
@@ -106,6 +107,7 @@ export default function AppLayout({ children }) {
                     className="border-t p-3 space-y-1"
                     style={{ borderColor: 'var(--border-subtle)' }}
                 >
+                    <ThemeToggle variant="sidebar" />
                     <AttemptsDisplay used={attempts_used} max={max_attempts} />
 
                     <div className="flex items-center gap-2.5 px-3 py-2 mt-1">
@@ -135,7 +137,7 @@ export default function AppLayout({ children }) {
                 <header
                     className="md:hidden h-14 flex items-center justify-between px-4 border-b shrink-0 backdrop-blur-md"
                     style={{
-                        backgroundColor: 'rgba(9, 9, 11, 0.8)',
+                        backgroundColor: 'var(--mobile-header-bg)',
                         borderColor: 'var(--border-subtle)',
                     }}
                 >
@@ -152,6 +154,7 @@ export default function AppLayout({ children }) {
                         <span className="text-xs text-zinc-500 font-mono">
                             {attempts_used}/{max_attempts}
                         </span>
+                        <ThemeToggle variant="compact" />
                         <Link
                             href={route('auth.logout')}
                             method="post"
