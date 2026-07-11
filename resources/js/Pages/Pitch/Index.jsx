@@ -1,8 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, usePage, Link } from '@inertiajs/react';
-import PitchRecorder from '@/Components/PitchRecorder';
-import PitchRules from '@/Components/PitchRules';
+import RecordingStudio from '@/Components/RecordingStudio';
 import { route } from 'ziggy-js';
 import { motion } from 'framer-motion';
 import { CheckCircle, XCircle, Clock, Calendar, Mic, BarChart2, TrendingUp } from 'lucide-react';
@@ -177,7 +176,6 @@ export default function Index() {
     const { props, url } = usePage();
     const { default_duration, attempts_used, max_attempts, history_pitches = [] } = props;
     const canAttempt = attempts_used < max_attempts;
-    const [isRecording, setIsRecording] = useState(false);
 
     const activeTab = useMemo(() => {
         const search = url.includes('?') ? url.split('?')[1] : '';
@@ -236,37 +234,26 @@ export default function Index() {
                     </div>
                 ) : (
                     /* ─── Recorder tab ─── */
-                    <div className="h-full flex flex-col lg:flex-row gap-4 p-4 md:p-6 overflow-hidden">
-                        {/* Recorder */}
-                        <div className="flex-1 h-full overflow-hidden flex flex-col min-w-0">
-                            {!canAttempt ? (
+                    <div className="h-full p-4 md:p-6 overflow-hidden">
+                        {!canAttempt ? (
+                            <div
+                                className="h-full rounded-2xl flex flex-col items-center justify-center p-8"
+                                style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
+                            >
                                 <div
-                                    className="flex-1 rounded-2xl flex flex-col items-center justify-center p-8 h-full"
-                                    style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
+                                    className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
+                                    style={{ backgroundColor: 'var(--danger-subtle)' }}
                                 >
-                                    <div
-                                        className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
-                                        style={{ backgroundColor: 'var(--danger-subtle)' }}
-                                    >
-                                        <XCircle className="w-8 h-8 text-red-400" strokeWidth={1.5} />
-                                    </div>
-                                    <h2 className="text-xl font-bold text-zinc-100 mb-2">Лимит исчерпан</h2>
-                                    <p className="text-sm text-zinc-500 text-center max-w-sm">
-                                        Вы исчерпали лимит попыток на сегодня ({max_attempts}/{max_attempts}). Возвращайтесь завтра!
-                                    </p>
+                                    <XCircle className="w-8 h-8 text-red-400" strokeWidth={1.5} />
                                 </div>
-                            ) : (
-                                <PitchRecorder
-                                    defaultDuration={default_duration}
-                                    onRecordingStateChange={setIsRecording}
-                                />
-                            )}
-                        </div>
-
-                        {/* Rules panel */}
-                        <div className="w-full lg:w-72 xl:w-80 shrink-0 h-full overflow-hidden">
-                            <PitchRules />
-                        </div>
+                                <h2 className="text-xl font-bold text-zinc-100 mb-2">Лимит исчерпан</h2>
+                                <p className="text-sm text-zinc-500 text-center max-w-sm">
+                                    Вы исчерпали лимит попыток на сегодня ({max_attempts}/{max_attempts}). Возвращайтесь завтра!
+                                </p>
+                            </div>
+                        ) : (
+                            <RecordingStudio defaultDuration={default_duration} />
+                        )}
                     </div>
                 )}
             </div>

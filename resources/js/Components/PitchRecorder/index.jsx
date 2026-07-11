@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from '@inertiajs/react';
 import { route } from 'ziggy-js';
 import { useMediaDevices } from '@/hooks/useMediaDevices';
@@ -9,7 +9,12 @@ import VideoRecorderView from './VideoRecorderView';
 
 const MAX_DURATION_SECONDS = 600;
 
-export default function PitchRecorder({ defaultDuration, onRecordingStateChange }) {
+export default function PitchRecorder({
+    defaultDuration,
+    onRecordingStateChange,
+    layout = 'fullscreen',
+    onStudioStateChange,
+}) {
     const [targetTimeMins, setTargetTimeMins] = useState(Math.round(defaultDuration / 60) || 3);
 
     const {
@@ -68,33 +73,29 @@ export default function PitchRecorder({ defaultDuration, onRecordingStateChange 
 
     const initError = devicesError ?? (recorder.initState === 'error' ? recorder.error : null);
 
-    const handleStop = async () => {
+    const handleStop = useCallback(async () => {
         const result = await recorder.stopRecording();
 
         if (result?.file) {
             setData('video', result.file);
             setData('media_type', result.mediaType);
         }
-    };
+    }, [recorder.stopRecording, setData]);
 
-    const handleReset = async () => {
+    const handleReset = useCallback(async () => {
         setData('video', null);
         await recorder.resetRecording();
-    };
+    }, [recorder.resetRecording, setData]);
 
-    const submitPitch = () => {
+    const submitPitch = useCallback(() => {
         if (!recorder.recordedFile) {
             return;
         }
 
         post(route('pitch.upload'));
-    };
+    }, [post, recorder.recordedFile]);
 
-    if (processing) {
-        return <ProcessingOverlay progress={progress} />;
-    }
-
-    const sharedProps = {
+    const sharedProps = useMemo(() => ({
         initState,
         initError,
         isRecording: recorder.isRecording,
@@ -116,7 +117,56 @@ export default function PitchRecorder({ defaultDuration, onRecordingStateChange 
         onReset: handleReset,
         onSubmit: submitPitch,
         cameraUnavailable,
-    };
+        layout,
+        mode,
+        processing,
+        progress,
+        previewVideoRef: recorder.previewVideoRef,
+    }), [
+        initState,
+        initError,
+        recorder.isRecording,
+        recorder.isRecorded,
+        recorder.recordingTime,
+        targetTimeMins,
+        recorder.recordedUrl,
+        recorder.nativeMediaRecorder,
+        errors,
+        recorder.error,
+        devices,
+        selectedAudioId,
+        selectedVideoId,
+        recorder.startRecording,
+        cameraUnavailable,
+        layout,
+        mode,
+        processing,
+        progress,
+        recorder.previewVideoRef,
+        handleStop,
+        handleReset,
+        submitPitch,
+    ]);
+
+    useEffect(() => {
+        if (layout !== 'studio' || !onStudioStateChange) {
+            return;
+        }
+
+        onStudioStateChange(sharedProps);
+    }, [layout, onStudioStateChange, sharedProps]);
+
+    if (processing) {
+        if (layout === 'studio') {
+            return null;
+        }
+
+        return <ProcessingOverlay progress={progress} />;
+    }
+
+    if (layout === 'studio') {
+        return null;
+    }
 
     if (mode === 'audio') {
         return <AudioRecorderView {...sharedProps} />;

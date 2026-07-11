@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Target, Lightbulb, BarChart2, DollarSign, Users, Megaphone, ChevronDown } from 'lucide-react';
 
-const tips = [
+export const tips = [
     {
         title: 'Проблема',
         subtitle: 'Problem',
@@ -117,13 +117,13 @@ function TipItem({ tip, index }) {
     );
 }
 
-export default function PitchRules() {
+export function PitchRulesContent({ embedded = false }) {
     return (
         <div
-            className="w-full rounded-2xl flex flex-col h-full overflow-hidden"
+            className={`w-full flex flex-col h-full overflow-hidden ${embedded ? '' : 'rounded-2xl'}`}
             style={{
-                backgroundColor: 'var(--bg-card)',
-                border: '1px solid var(--border-subtle)',
+                backgroundColor: embedded ? 'transparent' : 'var(--bg-card)',
+                border: embedded ? 'none' : '1px solid var(--border-subtle)',
             }}
         >
             <div
@@ -142,7 +142,7 @@ export default function PitchRules() {
             </div>
 
             <div
-                className="px-4 py-3 border-t"
+                className="px-4 py-3 border-t shrink-0"
                 style={{ borderColor: 'var(--border-subtle)' }}
             >
                 <p className="text-xs text-zinc-600 text-center">
@@ -151,4 +151,8 @@ export default function PitchRules() {
             </div>
         </div>
     );
+}
+
+export default function PitchRules() {
+    return <PitchRulesContent />;
 }

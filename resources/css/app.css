@@ -234,6 +234,20 @@ html, body {
         animation: shimmer 1.5s infinite;
     }
 
+    /* Teleprompter */
+    .teleprompter-scroll {
+        scroll-behavior: auto;
+    }
+
+    .teleprompter-text {
+        font-family: Georgia, 'Times New Roman', serif;
+        line-height: 1.8;
+    }
+
+    .teleprompter-active-line {
+        background: var(--accent-subtle);
+    }
+
     /* Reduce motion */
     @media (prefers-reduced-motion: reduce) {
         .animate-record-pulse,
