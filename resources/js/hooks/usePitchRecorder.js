@@ -30,11 +30,14 @@ export function usePitchRecorder({
     const [recordedUrl, setRecordedUrl] = useState(null);
     const [error, setError] = useState(null);
     const [nativeMediaRecorder, setNativeMediaRecorder] = useState(null);
+    const [previewStream, setPreviewStream] = useState(null);
 
     const previewStreamRef = useRef(null);
     const recorderRef = useRef(null);
     const timerRef = useRef(null);
     const recordingStartedAtRef = useRef(null);
+    const pausedAtRef = useRef(null);
+    const pausedTotalMsRef = useRef(0);
     const recordedUrlRef = useRef(null);
     const previewVideoRef = useRef(null);
     const mimeTypeRef = useRef(null);
@@ -76,9 +79,18 @@ export function usePitchRecorder({
         previewVideoRef.current.srcObject = stream;
     }, [isAudioMode]);
 
+    const reattachPreview = useCallback(() => {
+        if (!previewStreamRef.current) {
+            return;
+        }
+
+        attachPreviewToVideo(previewStreamRef.current);
+    }, [attachPreviewToVideo]);
+
     const acquirePreviewStream = useCallback(async () => {
         stopStream(previewStreamRef.current);
         previewStreamRef.current = null;
+        setPreviewStream(null);
 
         const stream = await acquireUserMedia(mode, audioDeviceId, videoDeviceId);
 
@@ -87,6 +99,7 @@ export function usePitchRecorder({
         }
 
         previewStreamRef.current = stream;
+        setPreviewStream(stream);
         attachPreviewToVideo(stream);
 
         return stream;
@@ -109,24 +122,34 @@ export function usePitchRecorder({
         }
     }, [acquirePreviewStream, audioDeviceId, enabled]);
 
+    const readElapsedSeconds = useCallback(() => {
+        if (!recordingStartedAtRef.current) {
+            return 0;
+        }
+
+        const pausedNow = pausedAtRef.current ? performance.now() - pausedAtRef.current : 0;
+        const elapsedMs = performance.now() - recordingStartedAtRef.current - pausedTotalMsRef.current - pausedNow;
+
+        return Math.max(0, Math.floor(elapsedMs / 1000));
+    }, []);
+
     const startTimer = useCallback(() => {
-        recordingStartedAtRef.current = performance.now();
-        setRecordingTime(0);
         clearTimer();
 
         timerRef.current = setInterval(() => {
-            const elapsed = Math.floor((performance.now() - recordingStartedAtRef.current) / 1000);
-            setRecordingTime(elapsed);
+            setRecordingTime(readElapsedSeconds());
         }, 250);
-    }, [clearTimer]);
+    }, [clearTimer, readElapsedSeconds]);
 
     const startRecording = useCallback(async () => {
-        if (!enabled || recorderState === 'recording') {
+        if (!enabled || recorderState === 'recording' || recorderState === 'paused') {
             return;
         }
 
         setError(null);
         autoStopRef.current = false;
+        pausedAtRef.current = null;
+        pausedTotalMsRef.current = 0;
 
         try {
             let stream = previewStreamRef.current;
@@ -152,6 +175,8 @@ export function usePitchRecorder({
             recorderRef.current = recorder;
             recorder.startRecording();
 
+            recordingStartedAtRef.current = performance.now();
+            setRecordingTime(0);
             setRecorderState('recording');
             startTimer();
 
@@ -163,15 +188,58 @@ export function usePitchRecorder({
         }
     }, [acquirePreviewStream, destroyRecorder, enabled, isAudioMode, recorderState, startTimer]);
 
-    const stopRecording = useCallback(async () => {
+    const pauseRecording = useCallback(() => {
         const recorder = recorderRef.current;
 
         if (!recorder || recorderState !== 'recording') {
+            return;
+        }
+
+        try {
+            recorder.pauseRecording();
+        } catch {
+            return;
+        }
+
+        pausedAtRef.current = performance.now();
+        clearTimer();
+        setRecordingTime(readElapsedSeconds());
+        setRecorderState('paused');
+    }, [clearTimer, readElapsedSeconds, recorderState]);
+
+    const resumeRecording = useCallback(() => {
+        const recorder = recorderRef.current;
+
+        if (!recorder || recorderState !== 'paused') {
+            return;
+        }
+
+        try {
+            recorder.resumeRecording();
+        } catch {
+            return;
+        }
+
+        if (pausedAtRef.current) {
+            pausedTotalMsRef.current += performance.now() - pausedAtRef.current;
+            pausedAtRef.current = null;
+        }
+
+        setRecorderState('recording');
+        startTimer();
+    }, [recorderState, startTimer]);
+
+    const stopRecording = useCallback(async () => {
+        const recorder = recorderRef.current;
+        const canStop = recorderState === 'recording' || recorderState === 'paused';
+
+        if (!recorder || !canStop) {
             return null;
         }
 
         clearTimer();
         setNativeMediaRecorder(null);
+        pausedAtRef.current = null;
 
         return new Promise((resolve) => {
             recorder.stopRecording(() => {
@@ -204,7 +272,7 @@ export function usePitchRecorder({
     const resetRecording = useCallback(async () => {
         clearTimer();
 
-        if (recorderState === 'recording' && recorderRef.current) {
+        if ((recorderState === 'recording' || recorderState === 'paused') && recorderRef.current) {
             await new Promise((resolve) => {
                 recorderRef.current.stopRecording(() => resolve());
             });
@@ -213,6 +281,9 @@ export function usePitchRecorder({
         destroyRecorder();
         revokeRecordedUrl();
 
+        pausedAtRef.current = null;
+        pausedTotalMsRef.current = 0;
+        recordingStartedAtRef.current = null;
         setRecordedFile(null);
         setRecordedUrl(null);
         setRecordingTime(0);
@@ -236,6 +307,7 @@ export function usePitchRecorder({
             destroyRecorder();
             stopStream(previewStreamRef.current);
             previewStreamRef.current = null;
+            setPreviewStream(null);
             revokeRecordedUrl();
         };
     }, [audioDeviceId, clearTimer, destroyRecorder, enabled, initPreview, mode, revokeRecordedUrl, videoDeviceId]);
@@ -251,7 +323,7 @@ export function usePitchRecorder({
 
     useEffect(() => {
         const handleBeforeUnload = (event) => {
-            if (recorderState !== 'recording') {
+            if (recorderState !== 'recording' && recorderState !== 'paused') {
                 return;
             }
 
@@ -267,16 +339,21 @@ export function usePitchRecorder({
     return {
         initState,
         recorderState,
-        isRecording: recorderState === 'recording',
+        isRecording: recorderState === 'recording' || recorderState === 'paused',
+        isPaused: recorderState === 'paused',
         isRecorded: recorderState === 'stopped' && recordedFile !== null,
         recordingTime,
+        maxDurationSeconds,
         recordedFile,
         recordedUrl,
         error,
         nativeMediaRecorder,
         previewVideoRef,
-        previewStream: previewStreamRef.current,
+        previewStream,
+        reattachPreview,
         startRecording,
+        pauseRecording,
+        resumeRecording,
         stopRecording,
         resetRecording,
         reinitialize: initPreview,

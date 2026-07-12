@@ -11,16 +11,17 @@ export const PITCH_TIPS = [
 ];
 
 export const FONT_SIZES = {
-    S: 16,
-    M: 20,
-    L: 24,
-    XL: 28,
+    S: 20,
+    M: 24,
+    L: 28,
+    XL: 34,
 };
 
 export const DEFAULT_TELEPROMPTER_SETTINGS = {
-    fontSize: 'M',
+    fontSize: 'L',
     scrollMode: 'auto',
-    manualSpeed: 50,
+    manualSpeed: 90,
+    speedMultiplier: 1,
 };
 
 export function generatePitchTemplate() {

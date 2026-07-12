@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Обработка — Pitch AI</title>
+  <link rel="stylesheet" href="css/pitch-ai.css" />
+</head>
+<body>
+  <div class="app-shell" data-od-id="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M5 10l7-7 7 7"/></svg>
+        </div>
+        <span>Pitch AI</span>
+      </div>
+      <nav class="sidebar-nav" aria-label="Основная навигация">
+        <a class="nav-item active" href="studio.html" aria-current="page">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Z"/><path d="M19 11a7 7 0 0 1-14 0M12 18v3"/></svg>
+          Новая запись
+        </a>
+        <a class="nav-item" href="history.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg>
+          История
+        </a>
+        <a class="nav-item" href="pitch-writer.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          Питч Райтер
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="attempts-bar">
+          <div class="attempts-bar-top"><span>Попытки</span><span class="mono">3 / 5</span></div>
+          <div class="attempts-track"><div class="attempts-fill" style="width:60%"></div></div>
+        </div>
+        <div class="user-row">
+          <div class="user-avatar" aria-hidden="true">А</div>
+          <span class="user-email">anna@startup.io</span>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-col">
+      <header class="app-header" data-od-id="app-header">
+        <a class="app-brand" href="pitch-writer.html" data-od-id="app-brand">
+          <span class="logo-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M5 10l7-7 7 7"/></svg></span>
+          <strong>Pitch AI</strong>
+        </a>
+        <button type="button" class="theme-toggle" data-action="toggle-theme" data-od-id="theme-toggle" aria-pressed="false" aria-label="Включить светлую тему"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></button>
+      </header>
+
+      <main class="main-content page" data-od-id="processing-page">
+        <div class="card proc-card" data-processing data-od-id="processing-card" aria-busy="true">
+          <div class="spin" aria-hidden="true"></div>
+          <h1 data-od-id="processing-title">ИИ разбирает питч</h1>
+          <p>Транскрипция и оценка по критериям инвестора. Обычно меньше минуты.</p>
+          <div class="error-banner" data-proc-error hidden role="alert" data-od-id="proc-error">
+            <div>
+              <strong>Не удалось завершить анализ</strong>
+              <p>Сеть или сервис AI недоступны. Попробуйте ещё раз — запись сохранена.</p>
+            </div>
+          </div>
+          <div class="proc-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="8" aria-label="Прогресс анализа">
+            <div class="proc-fill" data-proc-bar style="width:8%"></div>
+          </div>
+          <div class="proc-steps" data-od-id="proc-steps">
+            <div class="proc-step active" data-proc-step><span class="dot" aria-hidden="true"></span> Загрузка записи</div>
+            <div class="proc-step" data-proc-step><span class="dot" aria-hidden="true"></span> Транскрипция речи</div>
+            <div class="proc-step" data-proc-step><span class="dot" aria-hidden="true"></span> Оценка по критериям</div>
+            <div class="proc-step" data-proc-step><span class="dot" aria-hidden="true"></span> Сборка вердикта</div>
+          </div>
+          <p class="proc-status" data-proc-live aria-live="polite">Загрузка записи</p>
+          <div class="proc-actions" data-proc-actions hidden>
+            <button type="button" class="btn btn-primary" data-action="proc-retry" data-od-id="proc-retry">Повторить анализ</button>
+            <a class="btn btn-secondary" href="review.html" data-od-id="proc-back-review">К проверке записи</a>
+          </div>
+        </div>
+      </main>
+
+      <nav class="bottom-nav" aria-label="Мобильная навигация">
+        <a class="active" href="studio.html" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Z"/><path d="M19 11a7 7 0 0 1-14 0M12 18v3"/></svg>Запись</a>
+        <a href="history.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg>История</a>
+        <a href="pitch-writer.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Райтер</a>
+      </nav>
+    </div>
+  </div>
+  <script src="js/pitch-ai.js"></script>
+</body>
+</html>

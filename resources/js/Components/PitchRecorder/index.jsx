@@ -11,11 +11,14 @@ const MAX_DURATION_SECONDS = 600;
 
 export default function PitchRecorder({
     defaultDuration,
+    mode: selectedMode,
     onRecordingStateChange,
     layout = 'fullscreen',
     onStudioStateChange,
+    onRequestAudioFallback,
 }) {
     const [targetTimeMins, setTargetTimeMins] = useState(Math.round(defaultDuration / 60) || 3);
+    const mode = selectedMode === 'audio' || selectedMode === 'video' ? selectedMode : null;
 
     const {
         initState: devicesInitState,
@@ -26,23 +29,26 @@ export default function PitchRecorder({
         setSelectedAudioId,
         setSelectedVideoId,
         cameraUnavailable,
-    } = useMediaDevices();
+        rediscover,
+    } = useMediaDevices({
+        mode,
+        enabled: Boolean(mode),
+    });
 
-    const mode = cameraUnavailable ? 'audio' : 'video';
     const devicesReady = devicesInitState === 'ready';
 
     const recorder = usePitchRecorder({
-        mode,
+        mode: mode ?? 'audio',
         audioDeviceId: selectedAudioId,
         videoDeviceId: selectedVideoId,
         maxDurationSeconds: MAX_DURATION_SECONDS,
-        enabled: devicesReady,
+        enabled: Boolean(mode) && devicesReady,
     });
 
     const { setData, post, progress, processing, errors } = useForm({
         video: null,
         duration: targetTimeMins * 60,
-        media_type: mode,
+        media_type: mode ?? 'video',
     });
 
     useEffect(() => {
@@ -50,7 +56,9 @@ export default function PitchRecorder({
     }, [setData, targetTimeMins]);
 
     useEffect(() => {
-        setData('media_type', mode);
+        if (mode) {
+            setData('media_type', mode);
+        }
     }, [mode, setData]);
 
     useEffect(() => {
@@ -60,6 +68,10 @@ export default function PitchRecorder({
     }, [onRecordingStateChange, recorder.isRecording]);
 
     const initState = useMemo(() => {
+        if (!mode || devicesInitState === 'idle') {
+            return 'idle';
+        }
+
         if (devicesInitState === 'loading' || (devicesReady && recorder.initState === 'loading')) {
             return 'loading';
         }
@@ -69,7 +81,7 @@ export default function PitchRecorder({
         }
 
         return 'ready';
-    }, [devicesInitState, devicesReady, recorder.initState]);
+    }, [devicesInitState, devicesReady, mode, recorder.initState]);
 
     const initError = devicesError ?? (recorder.initState === 'error' ? recorder.error : null);
 
@@ -99,12 +111,16 @@ export default function PitchRecorder({
         initState,
         initError,
         isRecording: recorder.isRecording,
+        isPaused: recorder.isPaused,
         isRecorded: recorder.isRecorded,
         recordingTime: recorder.recordingTime,
+        maxDurationSeconds: MAX_DURATION_SECONDS,
         targetTimeMins,
         onTargetTimeChange: setTargetTimeMins,
         recordedUrl: recorder.recordedUrl,
+        recordedFile: recorder.recordedFile,
         nativeMediaRecorder: recorder.nativeMediaRecorder,
+        previewStream: recorder.previewStream,
         formErrors: errors,
         recorderError: recorder.error,
         devices,
@@ -113,6 +129,8 @@ export default function PitchRecorder({
         onAudioDeviceChange: setSelectedAudioId,
         onVideoDeviceChange: setSelectedVideoId,
         onStart: recorder.startRecording,
+        onPause: recorder.pauseRecording,
+        onResume: recorder.resumeRecording,
         onStop: handleStop,
         onReset: handleReset,
         onSubmit: submitPitch,
@@ -122,21 +140,30 @@ export default function PitchRecorder({
         processing,
         progress,
         previewVideoRef: recorder.previewVideoRef,
+        reattachPreview: recorder.reattachPreview,
+        rediscover,
+        onRequestAudioFallback,
     }), [
         initState,
         initError,
         recorder.isRecording,
+        recorder.isPaused,
         recorder.isRecorded,
         recorder.recordingTime,
         targetTimeMins,
         recorder.recordedUrl,
+        recorder.recordedFile,
         recorder.nativeMediaRecorder,
+        recorder.previewStream,
         errors,
         recorder.error,
         devices,
         selectedAudioId,
         selectedVideoId,
         recorder.startRecording,
+        recorder.pauseRecording,
+        recorder.resumeRecording,
+        recorder.reattachPreview,
         cameraUnavailable,
         layout,
         mode,
@@ -146,6 +173,8 @@ export default function PitchRecorder({
         handleStop,
         handleReset,
         submitPitch,
+        rediscover,
+        onRequestAudioFallback,
     ]);
 
     useEffect(() => {
@@ -165,6 +194,10 @@ export default function PitchRecorder({
     }
 
     if (layout === 'studio') {
+        return null;
+    }
+
+    if (!mode) {
         return null;
     }
 

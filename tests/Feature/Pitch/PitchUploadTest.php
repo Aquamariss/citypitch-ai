@@ -52,6 +52,31 @@ class PitchUploadTest extends TestCase
         Bus::assertDispatched(ProcessPitchJob::class);
     }
 
+    public function test_authenticated_user_can_upload_audio_pitch(): void
+    {
+        Bus::fake();
+        Storage::fake('public');
+
+        $user = User::factory()->create(['email' => 'student@example.com']);
+
+        $response = $this->actingAs($user)->post(route('pitch.upload'), [
+            'video' => UploadedFile::fake()->create('pitch.webm', 100, 'audio/webm'),
+            'duration' => 120,
+            'media_type' => 'audio',
+        ]);
+
+        $response->assertRedirect();
+
+        $this->assertDatabaseHas('pitches', [
+            'user_id' => $user->id,
+            'duration' => 120,
+            'status' => 'processing',
+            'media_type' => 'audio',
+        ]);
+
+        Bus::assertDispatched(ProcessPitchJob::class);
+    }
+
     public function test_upload_is_blocked_when_daily_limit_reached(): void
     {
         Storage::fake('public');

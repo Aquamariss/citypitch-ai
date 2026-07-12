@@ -3,18 +3,21 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, usePage, Link } from '@inertiajs/react';
 import RecordingStudio from '@/Components/RecordingStudio';
 import { route } from 'ziggy-js';
-import { motion } from 'framer-motion';
-import { CheckCircle, XCircle, Clock, Calendar, Mic, BarChart2, TrendingUp } from 'lucide-react';
+import { Mic } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 
 const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60).toString().padStart(2, '0');
     const s = (seconds % 60).toString().padStart(2, '0');
+
     return `${m}:${s}`;
 };
 
 const formatDate = (str) => {
-    if (!str) return '';
+    if (!str) {
+        return '';
+    }
+
     try {
         return new Date(str).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
     } catch {
@@ -22,156 +25,162 @@ const formatDate = (str) => {
     }
 };
 
-/* ─── Custom Tooltip for chart ─── */
-function ChartTooltip({ active, payload }) {
-    if (!active || !payload?.length) return null;
+function ScoreRing({ score }) {
+    const pct = Math.min(100, Math.max(0, score ?? 0)) / 100;
+    const color = pct >= 0.7 ? 'var(--success)' : pct >= 0.4 ? 'var(--warning)' : 'var(--danger)';
+    const size = 48;
+    const strokeWidth = 4;
+    const r = (size - strokeWidth) / 2;
+    const circ = 2 * Math.PI * r;
+    const dashOffset = circ - circ * pct;
+
     return (
-        <div
-            className="px-3 py-2 rounded-xl text-xs"
-            style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
-        >
-            <p className="font-mono font-bold">{payload[0].value}%</p>
+        <div className="score-ring" style={{ width: size, height: size }}>
+            <svg width={size} height={size}>
+                <circle
+                    cx={size / 2}
+                    cy={size / 2}
+                    r={r}
+                    fill="none"
+                    stroke="color-mix(in oklch, var(--fg) 8%, transparent)"
+                    strokeWidth={strokeWidth}
+                />
+                <circle
+                    cx={size / 2}
+                    cy={size / 2}
+                    r={r}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth={strokeWidth}
+                    strokeLinecap="round"
+                    strokeDasharray={circ}
+                    strokeDashoffset={dashOffset}
+                />
+            </svg>
+            <span className="score-ring-value" style={{ color }}>
+                {Math.round(score ?? 0)}
+            </span>
         </div>
     );
 }
 
-/* ─── Empty State ─── */
+function ChartTooltip({ active, payload }) {
+    if (!active || !payload?.length) {
+        return null;
+    }
+
+    return (
+        <div className="px-3 py-2 rounded-xl text-xs" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--fg)' }}>
+            <p className="mono font-bold">{payload[0].value}%</p>
+        </div>
+    );
+}
+
 function EmptyHistory() {
     return (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div
-                className="w-20 h-20 rounded-2xl flex items-center justify-center mb-5"
-                style={{ backgroundColor: 'var(--accent-subtle)' }}
-            >
-                <Mic className="w-10 h-10" style={{ color: 'var(--accent-primary)' }} strokeWidth={1.5} />
+        <div className="empty-state card">
+            <div className="empty-state-icon">
+                <Mic strokeWidth={1.5} />
             </div>
-            <h3 className="text-lg font-semibold text-zinc-200 mb-2">Нет записей</h3>
-            <p className="text-sm text-zinc-500 mb-6 max-w-xs">
-                Вы ещё не сделали ни одной записи. Запишите первый питч!
-            </p>
-            <Link
-                href={route('pitch.index')}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:scale-[1.02]"
-                style={{ backgroundColor: 'var(--accent-primary)', boxShadow: '0 0 20px var(--accent-glow)' }}
-            >
-                <Mic className="w-4 h-4" strokeWidth={1.5} />
+            <h2>Нет записей</h2>
+            <p>Вы ещё не сделали ни одной записи. Запишите первый питч!</p>
+            <Link href={route('pitch.index')} className="btn btn-primary" style={{ marginTop: 16 }}>
                 Записать питч
             </Link>
         </div>
     );
 }
 
-/* ─── History Card ─── */
-function HistoryCard({ attempt, index }) {
-    return (
-        <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.06, duration: 0.3 }}
-        >
-            <Link
-                href={route('pitch.result', { pitchId: attempt.id })}
-                className="group flex items-center gap-4 p-4 rounded-2xl transition-all duration-200 block"
-                style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(124,58,237,0.3)'; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.4)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
-            >
-                {/* Icon */}
-                <div
-                    className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105"
-                    style={{ backgroundColor: attempt.isPassed ? 'rgba(16,185,129,0.10)' : 'rgba(239,68,68,0.10)' }}
-                >
-                    {attempt.isPassed
-                        ? <CheckCircle className="w-6 h-6 text-emerald-400" strokeWidth={1.5} />
-                        : <XCircle className="w-6 h-6 text-red-400" strokeWidth={1.5} />
-                    }
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                        <h4
-                            className="text-sm font-semibold text-zinc-200 truncate transition-colors"
-                            style={{}}
-                        >
-                            {attempt.name || 'Анализ питча'}
-                        </h4>
-                        <span
-                            className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0"
-                            style={attempt.isPassed
-                                ? { backgroundColor: 'rgba(16,185,129,0.12)', color: '#10b981' }
-                                : { backgroundColor: 'rgba(239,68,68,0.12)', color: '#ef4444' }
-                            }
-                        >
-                            {attempt.isPassed ? 'ПРИНЯТО' : 'НЕ ПРИНЯТО'}
-                        </span>
-                    </div>
-                    <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--text-muted)' }}>
-                        <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" strokeWidth={1.5} />
-                            {formatTime(attempt.duration)}
-                        </span>
-                        <span className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" strokeWidth={1.5} />
-                            {formatDate(attempt.created_at)}
-                        </span>
-                    </div>
-                </div>
-            </Link>
-        </motion.div>
-    );
-}
-
-/* ─── Progress Chart ─── */
-function ProgressChart({ pitches }) {
-    if (pitches.length < 2) return null;
-
-    const chartData = pitches
+function HistoryView({ historyPitches, attemptsUsed, maxAttempts }) {
+    const chartData = historyPitches
         .slice()
         .reverse()
-        .map((p, i) => ({
-            i: i + 1,
-            score: p.score ?? (p.isPassed ? 70 : 35),
-            name: p.name || `#${i + 1}`,
+        .map((pitch, index) => ({
+            i: index + 1,
+            score: pitch.score ?? (pitch.isPassed ? 70 : 35),
         }));
 
     return (
-        <div
-            className="rounded-2xl p-4 mb-4"
-            style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
-        >
-            <div className="flex items-center gap-2 mb-4">
-                <TrendingUp className="w-4 h-4 text-violet-400" strokeWidth={1.5} />
-                <h3 className="text-sm font-semibold text-zinc-200">Прогресс</h3>
-                <span className="ml-auto text-xs text-zinc-600">{pitches.length} попыток</span>
+        <div className="page">
+            <div className="page-title">
+                <div>
+                    <p className="caps">Архив</p>
+                    <h1>История питчей</h1>
+                    <p>
+                        {attemptsUsed}/{maxAttempts} попыток · порог принятия 60%
+                    </p>
+                </div>
+                <Link href={route('pitch.index')} className="btn btn-primary btn-sm">
+                    Новая запись
+                </Link>
             </div>
-            <ResponsiveContainer width="100%" height={80}>
-                <AreaChart data={chartData} margin={{ top: 0, right: 0, left: -40, bottom: 0 }}>
-                    <defs>
-                        <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.25} />
-                            <stop offset="95%" stopColor="#7c3aed" stopOpacity={0} />
-                        </linearGradient>
-                    </defs>
-                    <XAxis dataKey="i" tick={false} axisLine={false} tickLine={false} />
-                    <YAxis domain={[0, 100]} tick={false} axisLine={false} tickLine={false} />
-                    <Tooltip content={<ChartTooltip />} />
-                    <Area
-                        type="monotone"
-                        dataKey="score"
-                        stroke="#7c3aed"
-                        strokeWidth={2}
-                        fill="url(#scoreGrad)"
-                        dot={false}
-                        activeDot={{ r: 4, fill: '#7c3aed', stroke: 'var(--bg-card)', strokeWidth: 2 }}
-                    />
-                </AreaChart>
-            </ResponsiveContainer>
+
+            {historyPitches.length === 0 ? (
+                <EmptyHistory />
+            ) : (
+                <div className="history-layout">
+                    <div className="attempt-list">
+                        {historyPitches.map((attempt) => {
+                            const score = attempt.score ?? (attempt.isPassed ? 70 : 35);
+
+                            return (
+                                <Link
+                                    key={attempt.id}
+                                    href={route('pitch.result', { pitchId: attempt.id })}
+                                    className="attempt-row"
+                                >
+                                    <ScoreRing score={score} />
+                                    <div className="min-w-0">
+                                        <h3 className="truncate">{attempt.name || 'Анализ питча'}</h3>
+                                        <p className="meta">
+                                            {formatTime(attempt.duration)}
+                                            {' · '}
+                                            {attempt.media_type === 'audio' ? 'аудио' : 'видео'}
+                                            {' · '}
+                                            {formatDate(attempt.created_at)}
+                                        </p>
+                                    </div>
+                                    <span className={`badge ${attempt.isPassed ? 'badge-success' : 'badge-danger'}`}>
+                                        {attempt.isPassed ? 'Принято' : 'Не принято'}
+                                    </span>
+                                </Link>
+                            );
+                        })}
+                    </div>
+
+                    {chartData.length >= 2 && (
+                        <div className="card chart-card">
+                            <h2>Прогресс</h2>
+                            <ResponsiveContainer width="100%" height={180}>
+                                <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="oklch(72% 0.09 65)" stopOpacity={0.25} />
+                                            <stop offset="95%" stopColor="oklch(72% 0.09 65)" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <XAxis dataKey="i" tick={false} axisLine={false} tickLine={false} />
+                                    <YAxis domain={[0, 100]} tick={false} axisLine={false} tickLine={false} />
+                                    <Tooltip content={<ChartTooltip />} />
+                                    <Area
+                                        type="monotone"
+                                        dataKey="score"
+                                        stroke="oklch(72% 0.09 65)"
+                                        strokeWidth={2}
+                                        fill="url(#scoreGrad)"
+                                        dot={false}
+                                        activeDot={{ r: 4, fill: 'oklch(72% 0.09 65)' }}
+                                    />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
 
-/* ─── Main Page ─── */
 export default function Index() {
     const { props, url } = usePage();
     const { default_duration, attempts_used, max_attempts, history_pitches = [] } = props;
@@ -184,79 +193,36 @@ export default function Index() {
         return tab === 'history' ? 'history' : 'recorder';
     }, [url]);
 
+    const isStudio = activeTab === 'recorder' && canAttempt;
+
     return (
         <AppLayout>
-            <Head title="Запись питча — Pitch AI" />
+            <Head title={isStudio ? 'Студия записи — Pitch AI' : 'История — Pitch AI'} />
 
-            <div className="flex-1 h-[calc(100vh-56px)] md:h-[calc(100vh-56px)] overflow-hidden">
-                {activeTab === 'history' ? (
-                    /* ─── History tab ─── */
-                    <div className="h-full overflow-y-auto p-4 md:p-6">
-                        <div className="max-w-2xl mx-auto">
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                transition={{ duration: 0.3 }}
-                            >
-                                <div className="flex items-center justify-between mb-5">
-                                    <div>
-                                        <h2 className="text-xl font-bold text-zinc-100">История питчей</h2>
-                                        <p className="text-sm text-zinc-500 mt-0.5">Все ваши предыдущие попытки</p>
-                                    </div>
-                                    <div
-                                        className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium"
-                                        style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}
-                                    >
-                                        <BarChart2 className="w-3.5 h-3.5" strokeWidth={1.5} />
-                                        {attempts_used}/{max_attempts} попыток
-                                    </div>
-                                </div>
-
-                                {history_pitches.length === 0 ? (
-                                    <div
-                                        className="rounded-2xl"
-                                        style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
-                                    >
-                                        <EmptyHistory />
-                                    </div>
-                                ) : (
-                                    <>
-                                        <ProgressChart pitches={history_pitches} />
-                                        <div className="space-y-2">
-                                            {history_pitches.map((att, i) => (
-                                                <HistoryCard key={att.id} attempt={att} index={i} />
-                                            ))}
-                                        </div>
-                                    </>
-                                )}
-                            </motion.div>
+            {activeTab === 'history' ? (
+                <HistoryView
+                    historyPitches={history_pitches}
+                    attemptsUsed={attempts_used}
+                    maxAttempts={max_attempts}
+                />
+            ) : !canAttempt ? (
+                <div className="page">
+                    <div className="empty-state card">
+                        <div className="empty-state-icon" style={{ background: 'var(--danger-subtle)', color: 'var(--danger)' }}>
+                            <Mic strokeWidth={1.5} />
                         </div>
+                        <h2>Лимит исчерпан</h2>
+                        <p>
+                            Вы исчерпали лимит попыток на сегодня ({max_attempts}/{max_attempts}). Возвращайтесь завтра!
+                        </p>
+                        <Link href={`${route('pitch.index')}?tab=history`} className="btn btn-secondary" style={{ marginTop: 16 }}>
+                            К истории
+                        </Link>
                     </div>
-                ) : (
-                    /* ─── Recorder tab ─── */
-                    <div className="h-full p-4 md:p-6 overflow-hidden">
-                        {!canAttempt ? (
-                            <div
-                                className="h-full rounded-2xl flex flex-col items-center justify-center p-8"
-                                style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
-                            >
-                                <div
-                                    className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
-                                    style={{ backgroundColor: 'var(--danger-subtle)' }}
-                                >
-                                    <XCircle className="w-8 h-8 text-red-400" strokeWidth={1.5} />
-                                </div>
-                                <h2 className="text-xl font-bold text-zinc-100 mb-2">Лимит исчерпан</h2>
-                                <p className="text-sm text-zinc-500 text-center max-w-sm">
-                                    Вы исчерпали лимит попыток на сегодня ({max_attempts}/{max_attempts}). Возвращайтесь завтра!
-                                </p>
-                            </div>
-                        ) : (
-                            <RecordingStudio defaultDuration={default_duration} />
-                        )}
-                    </div>
-                )}
-            </div>
+                </div>
+            ) : (
+                <RecordingStudio defaultDuration={default_duration} />
+            )}
         </AppLayout>
     );
 }

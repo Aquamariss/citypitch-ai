@@ -1,32 +1,44 @@
-import { useEffect, useState } from 'react';
-import { Head, router } from '@inertiajs/react';
+import { useEffect, useMemo, useState } from 'react';
+import { Head, Link, router } from '@inertiajs/react';
 import { route } from 'ziggy-js';
 import AppLayout from '@/Layouts/AppLayout';
-import { motion } from 'framer-motion';
-import { AlertCircle, ArrowLeft, Brain } from 'lucide-react';
 
-const steps = ['transcribing', 'analyzing', 'processing', 'completed'];
+const PROC_STEPS = [
+    { id: 'upload', label: 'Загрузка записи', match: ['загрузка', 'upload', 'обработка', 'обработ'] },
+    { id: 'transcribe', label: 'Транскрипция речи', match: ['распознав', 'transcrib', 'реч'] },
+    { id: 'analyze', label: 'Оценка по критериям', match: ['анализ', 'analyz', 'критер'] },
+    { id: 'verdict', label: 'Сборка вердикта', match: ['готов', 'completed', 'вердикт', 'отчёт', 'отчет'] },
+];
 
-const stepLabels = {
-    transcribing: 'Распознаём речь',
-    analyzing:    'Анализируем структуру',
-    processing:   'Формируем отчёт',
-    completed:    'Готово!',
-    обработка:    'Обрабатываем файл',
-    загрузка:     'Загружаем данные',
-};
+function resolveStepIndex(step, status) {
+    if (status === 'completed') {
+        return PROC_STEPS.length;
+    }
 
-function getStepLabel(step) {
-    if (!step) return 'Обрабатываем...';
-    const key = Object.keys(stepLabels).find((k) => step.toLowerCase().includes(k));
-    return key ? stepLabels[key] : step;
+    const raw = String(step ?? '').toLowerCase();
+
+    for (let i = PROC_STEPS.length - 1; i >= 0; i -= 1) {
+        if (PROC_STEPS[i].match.some((token) => raw.includes(token))) {
+            return i;
+        }
+    }
+
+    return 0;
 }
 
 export default function Status({ pitchId, initialStatus }) {
     const [status, setStatus] = useState(initialStatus);
+    const isError = status.status === 'error';
+    const stepIndex = useMemo(
+        () => resolveStepIndex(status.step, status.status),
+        [status.step, status.status],
+    );
+    const progress = Math.min(100, Math.max(8, Math.round((stepIndex / PROC_STEPS.length) * 100)));
 
     useEffect(() => {
-        if (status.status === 'completed' || status.status === 'error') return;
+        if (status.status === 'completed' || status.status === 'error') {
+            return undefined;
+        }
 
         const interval = setInterval(async () => {
             try {
@@ -36,106 +48,103 @@ export default function Status({ pitchId, initialStatus }) {
 
                 if (response.redirected) {
                     router.visit(response.url);
+
                     return;
                 }
 
                 if (response.ok) {
                     const data = await response.json();
                     setStatus(data);
+
                     if (data.status === 'completed') {
                         router.visit(route('pitch.result', { pitchId }));
                     }
                 } else {
-                    setStatus({ status: 'error', step: 'ошибка сети', message: 'Сервер вернул ошибку. Попробуйте обновить страницу.' });
+                    setStatus({
+                        status: 'error',
+                        step: 'ошибка сети',
+                        message: 'Сервер вернул ошибку. Попробуйте обновить страницу.',
+                    });
                 }
             } catch {
-                setStatus({ status: 'error', step: 'ошибка сети', message: 'Проблемы с соединением. Пожалуйста, проверьте интернет.' });
+                setStatus({
+                    status: 'error',
+                    step: 'ошибка сети',
+                    message: 'Проблемы с соединением. Пожалуйста, проверьте интернет.',
+                });
             }
         }, 3000);
 
         return () => clearInterval(interval);
     }, [pitchId, status.status]);
 
-    const isError = status.status === 'error';
-
     return (
         <AppLayout>
             <Head title="Обработка питча — Pitch AI" />
 
-            <div className="flex items-center justify-center min-h-[calc(100vh-56px)] p-6">
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.4 }}
-                    className="w-full max-w-sm"
+            <div className="page">
+                <div
+                    className={`card proc-card${isError ? ' is-error' : ''}`}
+                    data-processing
+                    aria-busy={isError ? 'false' : 'true'}
                 >
-                    <div
-                        className="rounded-2xl p-8 text-center"
-                        style={{
-                            backgroundColor: 'var(--bg-card)',
-                            border: '1px solid var(--border-subtle)',
-                            boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
-                        }}
-                    >
-                        {isError ? (
-                            <div className="flex flex-col items-center">
-                                <div
-                                    className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
-                                    style={{ backgroundColor: 'var(--danger-subtle)' }}
-                                >
-                                    <AlertCircle className="w-8 h-8 text-red-400" strokeWidth={1.5} />
-                                </div>
-                                <h3 className="text-lg font-bold text-zinc-100 mb-2">Произошла ошибка</h3>
-                                <p className="text-sm text-zinc-500 mb-6 leading-relaxed">
-                                    {status.message || 'Не удалось обработать файл. Попробуйте ещё раз.'}
-                                </p>
-                                <button
-                                    onClick={() => router.visit(route('pitch.index'))}
-                                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
-                                    style={{ backgroundColor: 'var(--accent-primary)', boxShadow: '0 0 20px var(--accent-glow)' }}
-                                >
-                                    <ArrowLeft className="w-4 h-4" strokeWidth={1.5} />
-                                    Вернуться к записи
-                                </button>
+                    {!isError && <div className="spin" aria-hidden="true" />}
+
+                    <h1>{isError ? 'Не удалось разобрать питч' : 'Анализируем питч'}</h1>
+                    <p>
+                        {isError
+                            ? (status.message || 'Не удалось обработать файл. Попробуйте ещё раз.')
+                            : 'Транскрибируем речь и оцениваем по критериям инвестора. Обычно 1–2 минуты.'}
+                    </p>
+
+                    {isError && (
+                        <div className="error-banner" role="alert">
+                            {status.message || 'Ошибка анализа. Можно повторить запись.'}
+                        </div>
+                    )}
+
+                    {!isError && (
+                        <>
+                            <div
+                                className="proc-track"
+                                role="progressbar"
+                                aria-valuemin={0}
+                                aria-valuemax={100}
+                                aria-valuenow={progress}
+                            >
+                                <div className="proc-fill" style={{ width: `${progress}%` }} />
                             </div>
-                        ) : (
-                            <div className="flex flex-col items-center">
-                                {/* AI Ring */}
-                                <div className="relative w-20 h-20 flex items-center justify-center mb-6">
-                                    <div className="absolute inset-0 ai-ring" />
-                                    <div className="absolute inset-2 ai-ring-reverse" />
-                                    <Brain
-                                        className="w-8 h-8 relative z-10"
-                                        style={{ color: 'var(--ai-primary)' }}
-                                        strokeWidth={1.5}
-                                    />
-                                </div>
 
-                                <h3 className="text-lg font-bold text-zinc-100 mb-2">ИИ анализирует питч</h3>
-                                <p className="text-sm text-zinc-500 mb-6 leading-relaxed">
-                                    Это займёт 1–2 минуты. Пожалуйста, не закрывайте страницу.
-                                </p>
+                            <div className="proc-steps">
+                                {PROC_STEPS.map((step, index) => {
+                                    const done = index < stepIndex;
+                                    const active = index === stepIndex && status.status !== 'completed';
 
-                                {/* Indeterminate progress */}
-                                <div className="w-full mb-4 overflow-hidden rounded-full h-1" style={{ backgroundColor: 'var(--bg-elevated)' }}>
-                                    <div
-                                        className="h-full rounded-full animate-shimmer"
-                                        style={{ width: '60%' }}
-                                    />
-                                </div>
-
-                                {/* Current step */}
-                                <div
-                                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm"
-                                    style={{ backgroundColor: 'var(--accent-subtle)', color: 'var(--accent-primary)' }}
-                                >
-                                    <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: 'var(--accent-primary)' }} />
-                                    {getStepLabel(status.step)}
-                                </div>
+                                    return (
+                                        <div
+                                            key={step.id}
+                                            className={`proc-step${done ? ' done' : ''}${active ? ' active' : ''}`}
+                                        >
+                                            <span className="dot" aria-hidden="true" />
+                                            {step.label}
+                                        </div>
+                                    );
+                                })}
                             </div>
-                        )}
-                    </div>
-                </motion.div>
+                        </>
+                    )}
+
+                    {isError && (
+                        <div className="proc-actions">
+                            <Link href={route('pitch.index')} className="btn btn-primary">
+                                Новая запись
+                            </Link>
+                            <Link href={`${route('pitch.index')}?tab=history`} className="btn btn-secondary">
+                                К истории
+                            </Link>
+                        </div>
+                    )}
+                </div>
             </div>
         </AppLayout>
     );

@@ -2,100 +2,45 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { route } from 'ziggy-js';
 import TranscriptPlayer from '@/Components/TranscriptPlayer';
-import { motion } from 'framer-motion';
-import { CheckCircle, XCircle, Download, Video, ChevronRight, Brain } from 'lucide-react';
+import { useMemo } from 'react';
 
-/* ─── Score Ring (SVG) ─── */
-function ScoreRing({ score, maxScore }) {
-    const pct = maxScore > 0 ? score / maxScore : 0;
+function ScoreRing({ score, maxScore = 100, size = 56, label }) {
+    const pct = maxScore > 0 ? Math.min(1, score / maxScore) : 0;
     const isGood = pct >= 0.7;
     const isMedium = pct >= 0.4;
-    const color = isGood ? '#10b981' : isMedium ? '#f59e0b' : '#ef4444';
-
-    const size = 56;
-    const strokeWidth = 4;
+    const color = isGood ? 'var(--success)' : isMedium ? 'var(--warning)' : 'var(--danger)';
+    const strokeWidth = size >= 120 ? 8 : 4;
     const r = (size - strokeWidth) / 2;
     const circ = 2 * Math.PI * r;
     const dashOffset = circ - circ * pct;
 
     return (
-        <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
-            <svg width={size} height={size} className="-rotate-90">
+        <div className="score-ring" style={{ width: size, height: size }}>
+            <svg width={size} height={size}>
                 <circle
-                    cx={size / 2} cy={size / 2} r={r}
+                    cx={size / 2}
+                    cy={size / 2}
+                    r={r}
                     fill="none"
-                    stroke="rgba(255,255,255,0.06)"
+                    stroke="color-mix(in oklch, var(--fg) 8%, transparent)"
                     strokeWidth={strokeWidth}
                 />
                 <circle
-                    cx={size / 2} cy={size / 2} r={r}
+                    cx={size / 2}
+                    cy={size / 2}
+                    r={r}
                     fill="none"
                     stroke={color}
                     strokeWidth={strokeWidth}
                     strokeLinecap="round"
                     strokeDasharray={circ}
                     strokeDashoffset={dashOffset}
-                    style={{
-                        transition: 'stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1)',
-                    }}
                 />
             </svg>
-            <span
-                className="absolute text-xs font-bold font-mono"
-                style={{ color }}
-            >
-                {score}/{maxScore}
+            <span className="score-ring-value" style={{ color }}>
+                {label ?? `${score}/${maxScore}`}
             </span>
         </div>
-    );
-}
-
-/* ─── Criterion Card ─── */
-function CriterionCard({ criterion, index }) {
-    const { name, score, maxScore, feedback } = criterion;
-    const pct = maxScore > 0 ? score / maxScore : 0;
-    const isGood = pct >= 0.7;
-    const isMedium = pct >= 0.4;
-    const color = isGood ? '#10b981' : isMedium ? '#f59e0b' : '#ef4444';
-    const colorSubtle = isGood ? 'rgba(16,185,129,0.08)' : isMedium ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)';
-
-    return (
-        <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 + index * 0.07, duration: 0.35, ease: 'easeOut' }}
-            className="p-4 rounded-2xl flex flex-col gap-3"
-            style={{
-                backgroundColor: 'var(--bg-card)',
-                border: '1px solid var(--border-subtle)',
-            }}
-        >
-            <div className="flex items-start gap-3">
-                <ScoreRing score={score} maxScore={maxScore} />
-                <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                        <h4 className="text-sm font-semibold text-zinc-200 truncate">{name}</h4>
-                        <span
-                            className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0"
-                            style={{ backgroundColor: colorSubtle, color }}
-                        >
-                            {Math.round(pct * 100)}%
-                        </span>
-                    </div>
-                    {/* Mini progress bar */}
-                    <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg-elevated)' }}>
-                        <motion.div
-                            className="h-full rounded-full"
-                            initial={{ width: 0 }}
-                            animate={{ width: `${Math.min(pct * 100, 100)}%` }}
-                            transition={{ delay: 0.2 + index * 0.07, duration: 0.7, ease: 'easeOut' }}
-                            style={{ backgroundColor: color }}
-                        />
-                    </div>
-                </div>
-            </div>
-            <p className="text-xs text-zinc-500 leading-relaxed">{feedback}</p>
-        </motion.div>
     );
 }
 
@@ -104,142 +49,118 @@ export default function Result() {
     const { analysis, transcription, videoUrl, id } = result;
 
     const totalScore = analysis.criteria?.reduce((s, c) => s + (c.score || 0), 0) ?? 0;
-    const totalMax   = analysis.criteria?.reduce((s, c) => s + (c.maxScore || 0), 0) ?? 0;
-    const totalPct   = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 0;
+    const totalMax = analysis.criteria?.reduce((s, c) => s + (c.maxScore || 0), 0) ?? 0;
+    const totalPct = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 0;
+
+    const priorities = useMemo(() => {
+        return [...(analysis.criteria || [])]
+            .map((criterion) => ({
+                ...criterion,
+                pct: criterion.maxScore > 0 ? criterion.score / criterion.maxScore : 0,
+            }))
+            .sort((a, b) => a.pct - b.pct)
+            .slice(0, 3);
+    }, [analysis.criteria]);
 
     return (
         <AppLayout>
             <Head title={analysis.name ? `${analysis.name} — результат` : 'Результаты питча'} />
 
-            <div className="p-4 md:p-6 max-w-6xl mx-auto">
-                {/* Breadcrumb */}
-                <nav className="flex items-center gap-1.5 text-xs mb-5" style={{ color: 'var(--text-muted)' }}>
-                    <Link href={`${route('pitch.index')}?tab=history`} className="hover:text-zinc-300 transition-colors">
-                        История
-                    </Link>
-                    <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.5} />
-                    <span style={{ color: 'var(--text-secondary)' }}>{analysis.name || 'Результат'}</span>
-                </nav>
-
-                {/* Header */}
-                <motion.div
-                    initial={{ opacity: 0, y: -8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.35 }}
-                    className="flex flex-wrap items-center justify-between gap-4 mb-6"
-                >
-                    <div className="flex items-center gap-3 flex-wrap">
-                        <h1 className="text-xl font-bold text-zinc-100">
-                            {analysis.name || 'Результат анализа'}
-                        </h1>
-                        <span
-                            className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold"
-                            style={analysis.isPassed
-                                ? { backgroundColor: 'rgba(16,185,129,0.12)', color: '#10b981', border: '1px solid rgba(16,185,129,0.25)' }
-                                : { backgroundColor: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }
-                            }
-                        >
-                            {analysis.isPassed
-                                ? <><CheckCircle className="w-3.5 h-3.5" strokeWidth={2} /> ПРИНЯТО</>
-                                : <><XCircle className="w-3.5 h-3.5" strokeWidth={2} /> НЕ ПРИНЯТО</>
-                            }
-                        </span>
+            <div className="page">
+                <div className="page-title">
+                    <div>
+                        <p className="caps">Результат</p>
+                        <h1>{analysis.name || 'Результат анализа'}</h1>
+                        <p>Оценка по критериям инвестора · порог принятия 60%</p>
                     </div>
-
-                    <div className="flex items-center gap-2">
-                        <a
-                            href={route('pitch.download', { pitchId: id })}
-                            download
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200"
-                            style={{
-                                backgroundColor: 'var(--bg-elevated)',
-                                color: 'var(--text-secondary)',
-                                border: '1px solid var(--border-default)',
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--border-strong)'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.borderColor = 'var(--border-default)'; }}
-                        >
-                            <Download className="w-4 h-4" strokeWidth={1.5} />
-                            {media_type === 'audio' ? 'Аудио' : 'Видео'}
+                    <div className="flex flex-wrap gap-2">
+                        <a href={route('pitch.download', { pitchId: id })} download className="btn btn-secondary btn-sm">
+                            Скачать {media_type === 'audio' ? 'аудио' : 'видео'}
                         </a>
-                        <Link
-                            href={route('pitch.index')}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all hover:scale-[1.02] active:scale-95"
-                            style={{ backgroundColor: 'var(--accent-primary)', boxShadow: '0 0 16px var(--accent-glow)' }}
-                        >
-                            <Video className="w-4 h-4" strokeWidth={1.5} />
+                        <Link href={route('pitch.index')} className="btn btn-secondary btn-sm">
                             Новая попытка
                         </Link>
                     </div>
-                </motion.div>
+                </div>
 
-                {/* Main Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                    {/* Left: Player + Transcript */}
-                    <div className="lg:col-span-3 flex flex-col gap-6">
+                <section className="result-hero card" aria-labelledby="verdict-headline">
+                    <div className="verdict-score">
+                        <ScoreRing score={totalPct} maxScore={100} size={140} label={`${totalPct}`} />
+                    </div>
+                    <div>
+                        <span className={`badge ${analysis.isPassed ? 'badge-success' : 'badge-danger'}`}>
+                            {analysis.isPassed ? 'Принято' : 'Не принято'}
+                        </span>
+                        <h2 className="verdict-headline" id="verdict-headline">
+                            {analysis.isPassed
+                                ? 'Питч проходит порог'
+                                : 'Пока ниже порога принятия'}
+                        </h2>
+                        <p className="verdict-copy">
+                            {analysis.summary || analysis.overallFeedback || (
+                                analysis.isPassed
+                                    ? 'Структура и ясность на уровне. Дожимайте слабые критерии перед демо-днём.'
+                                    : 'Сфокусируйтесь на самых слабых блоках ниже — затем перезапишите попытку.'
+                            )}
+                        </p>
+                    </div>
+                </section>
+
+                <section aria-labelledby="criteria-label">
+                    <h2 className="caps section-label" id="criteria-label">Критерии</h2>
+                    <div className="criteria-grid">
+                        {(analysis.criteria || []).map((criterion) => {
+                            const pct = criterion.maxScore > 0
+                                ? Math.round((criterion.score / criterion.maxScore) * 100)
+                                : 0;
+
+                            return (
+                                <article key={criterion.name} className="card" style={{ padding: 16 }}>
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <ScoreRing score={criterion.score} maxScore={criterion.maxScore} />
+                                        <div className="min-w-0">
+                                            <h3 className="text-sm font-semibold truncate">{criterion.name}</h3>
+                                            <p className="text-xs mono" style={{ color: 'var(--muted)' }}>{pct}%</p>
+                                        </div>
+                                    </div>
+                                    <p className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
+                                        {criterion.feedback}
+                                    </p>
+                                </article>
+                            );
+                        })}
+                    </div>
+                </section>
+
+                <div className="result-split" style={{ marginTop: 24 }}>
+                    <section className="card" style={{ padding: 16 }}>
                         <TranscriptPlayer
                             mediaUrl={videoUrl}
                             transcript={transcription.segments || []}
                             mediaType={media_type}
                             duration={transcription.duration}
                         />
-                    </div>
+                    </section>
 
-                    {/* Right: AI Feedback */}
-                    <div className="lg:col-span-2 flex flex-col gap-4">
-                        {/* Overall Score */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 12 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.4 }}
-                            className="rounded-2xl p-5"
-                            style={{
-                                background: 'linear-gradient(135deg, rgba(124,58,237,0.12), rgba(6,182,212,0.08))',
-                                border: '1px solid rgba(124,58,237,0.2)',
-                            }}
+                    <section className="card" aria-labelledby="feedback-title">
+                        <h2 className="feedback-title" id="feedback-title">Что править в первую очередь</h2>
+                        <ol className="feedback-list">
+                            {priorities.map((item) => (
+                                <li key={item.name}>
+                                    <strong>{item.name}</strong>
+                                    {' — '}
+                                    {item.feedback || 'Усильте этот блок перед следующей записью.'}
+                                </li>
+                            ))}
+                        </ol>
+                        <Link
+                            href={route('pitch-writer.index')}
+                            className="btn btn-primary"
+                            style={{ marginTop: 18, width: '100%' }}
                         >
-                            <div className="flex items-center gap-4 mb-4">
-                                <div
-                                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                                    style={{ background: 'linear-gradient(135deg, #7c3aed, #06b6d4)' }}
-                                >
-                                    <Brain className="w-5 h-5 text-white" strokeWidth={1.5} />
-                                </div>
-                                <div>
-                                    <h3 className="text-sm font-bold text-zinc-100">Резюме ИИ</h3>
-                                    <div className="flex items-center gap-2 mt-0.5">
-                                        <span className="text-2xl font-bold font-mono" style={{ color: analysis.isPassed ? '#10b981' : '#ef4444' }}>
-                                            {totalPct}%
-                                        </span>
-                                        <span className="text-xs text-zinc-500">общий балл</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {analysis.summary && (
-                                <p className="text-sm text-zinc-400 leading-relaxed mb-3">
-                                    {analysis.summary}
-                                </p>
-                            )}
-                            {analysis.overallFeedback && (
-                                <p className="text-sm text-zinc-500 leading-relaxed">
-                                    {analysis.overallFeedback}
-                                </p>
-                            )}
-                        </motion.div>
-
-                        {/* Criteria */}
-                        <div>
-                            <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 px-1">
-                                Детальный разбор
-                            </h3>
-                            <div className="flex flex-col gap-3">
-                                {(analysis.criteria || []).map((c, i) => (
-                                    <CriterionCard key={i} criterion={c} index={i} />
-                                ))}
-                            </div>
-                        </div>
-                    </div>
+                            Открыть в Райтере
+                        </Link>
+                    </section>
                 </div>
             </div>
         </AppLayout>
