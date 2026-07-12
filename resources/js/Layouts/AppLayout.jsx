@@ -1,6 +1,6 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import { route } from 'ziggy-js';
-import { Mic, Clock, LogOut, Zap } from 'lucide-react';
+import { Mic, Clock, LogOut, Zap, Bot } from 'lucide-react';
 import ThemeToggle from '@/Components/ThemeToggle';
 
 const navItems = [
@@ -17,6 +17,12 @@ const navItems = [
         icon: Clock,
         isActive: (pathname, search) => search.includes('tab=history'),
     },
+    {
+        href: () => route('pitch-writer.index'),
+        label: 'Питч Райтер',
+        icon: Bot,
+        isActive: (pathname) => pathname === new URL(route('pitch-writer.index'), window.location).pathname,
+    }
 ];
 
 function NavItem({ item }) {
@@ -71,10 +77,10 @@ export default function AppLayout({ children }) {
     const avatarLetter = auth_email ? auth_email.charAt(0).toUpperCase() : 'U';
 
     return (
-        <div className="min-h-screen flex" style={{ backgroundColor: 'var(--bg-base)' }}>
+        <div className="h-screen w-full flex overflow-hidden" style={{ backgroundColor: 'var(--bg-base)' }}>
             {/* Sidebar */}
             <aside
-                className="hidden md:flex w-[220px] shrink-0 flex-col border-r"
+                className="hidden md:flex w-[220px] shrink-0 flex-col border-r h-full"
                 style={{ backgroundColor: 'var(--bg-overlay)', borderColor: 'var(--border-subtle)' }}
             >
                 {/* Logo */}
@@ -167,7 +173,7 @@ export default function AppLayout({ children }) {
                 </header>
 
                 {/* Content */}
-                <main className="flex-1 overflow-auto">
+                <main className="flex-1 overflow-auto flex flex-col relative">
                     {/* Flash messages */}
                     {usePage().props.status && (
                         <div

@@ -1,57 +1,9 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Target, Lightbulb, BarChart2, DollarSign, Users, Megaphone, ChevronDown } from 'lucide-react';
+import { Lightbulb, ChevronDown } from 'lucide-react';
+import { pitchTips } from '@/lib/pitchTips';
 
-export const tips = [
-    {
-        title: 'Проблема',
-        subtitle: 'Problem',
-        text: 'С какой реальной болью сталкивается клиент? Кому больно и почему это важно прямо сейчас?',
-        icon: Target,
-        color: '#ef4444',
-        colorSubtle: 'rgba(239,68,68,0.10)',
-    },
-    {
-        title: 'Решение',
-        subtitle: 'Solution',
-        text: 'Как ваш продукт решает эту проблему? Объясните механизм просто — за 30 секунд.',
-        icon: Lightbulb,
-        color: '#f59e0b',
-        colorSubtle: 'rgba(245,158,11,0.10)',
-    },
-    {
-        title: 'Рынок',
-        subtitle: 'Market',
-        text: 'Покажите размер рынка. Используйте метрики TAM, SAM, SOM с источниками.',
-        icon: BarChart2,
-        color: '#06b6d4',
-        colorSubtle: 'rgba(6,182,212,0.10)',
-    },
-    {
-        title: 'Бизнес-модель',
-        subtitle: 'Business Model',
-        text: 'Как вы будете зарабатывать? Назовите юнит-экономику и LTV/CAC.',
-        icon: DollarSign,
-        color: '#10b981',
-        colorSubtle: 'rgba(16,185,129,0.10)',
-    },
-    {
-        title: 'Команда',
-        subtitle: 'Team',
-        text: 'Почему именно вы? Расскажите о релевантном опыте каждого ключевого участника.',
-        icon: Users,
-        color: '#8b5cf6',
-        colorSubtle: 'rgba(139,92,246,0.10)',
-    },
-    {
-        title: 'Запрос',
-        subtitle: 'Call to Action',
-        text: 'Что вы хотите от аудитории? Сумму инвестиций, тип партнёра, пилот?',
-        icon: Megaphone,
-        color: '#7c3aed',
-        colorSubtle: 'rgba(124,58,237,0.10)',
-    },
-];
+export { pitchTips as tips };
 
 function TipItem({ tip, index }) {
     const [open, setOpen] = useState(false);
@@ -64,6 +16,7 @@ function TipItem({ tip, index }) {
             transition={{ delay: index * 0.05, duration: 0.3 }}
         >
             <button
+                type="button"
                 onClick={() => setOpen(!open)}
                 className="w-full text-left"
             >
@@ -73,8 +26,18 @@ function TipItem({ tip, index }) {
                         backgroundColor: open ? tip.colorSubtle : 'transparent',
                         border: `1px solid ${open ? tip.color + '30' : 'var(--border-subtle)'}`,
                     }}
-                    onMouseEnter={(e) => { if (!open) { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'var(--border-default)'; } }}
-                    onMouseLeave={(e) => { if (!open) { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.borderColor = 'var(--border-subtle)'; } }}
+                    onMouseEnter={(event) => {
+                        if (!open) {
+                            event.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)';
+                            event.currentTarget.style.borderColor = 'var(--border-default)';
+                        }
+                    }}
+                    onMouseLeave={(event) => {
+                        if (!open) {
+                            event.currentTarget.style.backgroundColor = 'transparent';
+                            event.currentTarget.style.borderColor = 'var(--border-subtle)';
+                        }
+                    }}
                 >
                     <div
                         className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold font-mono"
@@ -136,8 +99,8 @@ export function PitchRulesContent({ embedded = false }) {
             </div>
 
             <div className="flex-1 overflow-y-auto p-3 space-y-1.5 custom-scrollbar">
-                {tips.map((tip, i) => (
-                    <TipItem key={i} tip={tip} index={i} />
+                {pitchTips.map((tip, index) => (
+                    <TipItem key={tip.title} tip={tip} index={index} />
                 ))}
             </div>
 

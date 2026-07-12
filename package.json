@@ -7,6 +7,7 @@
         "dev": "vite"
     },
     "devDependencies": {
+        "@tailwindcss/typography": "^0.5.20",
         "@tailwindcss/vite": "^4.0.0",
         "concurrently": "^9.0.1",
         "laravel-vite-plugin": "^3.1",
@@ -15,15 +16,18 @@
     },
     "dependencies": {
         "@inertiajs/react": "^3.6.1",
+        "@laravel/stream-react": "^0.3.13",
         "@vitejs/plugin-react": "^6.0.3",
         "axios": "^1.18.1",
         "framer-motion": "^12.42.2",
         "lucide-react": "^1.24.0",
         "react": "^19.2.7",
         "react-dom": "^19.2.7",
+        "react-markdown": "^10.1.0",
         "react-player": "^3.4.0",
         "recharts": "^3.9.2",
         "recordrtc": "^5.6.2",
+        "remark-gfm": "^4.0.1",
         "ziggy-js": "^2.6.3"
     }
 }

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\OtpController;
 use App\Http\Controllers\PitchController;
+use App\Http\Controllers\PitchWriterController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/login', [OtpController::class, 'showLogin'])->name('login');
@@ -13,6 +14,11 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/', function () {
         return redirect()->route('pitch.index');
     });
+
+    Route::get('/pitch-writer', [PitchWriterController::class, 'index'])->name('pitch-writer.index');
+    Route::post('/pitch-writer/chat', [PitchWriterController::class, 'chat'])
+        ->middleware('throttle:10,1')
+        ->name('pitch-writer.chat');
 
     Route::get('/pitch', [PitchController::class, 'index'])->name('pitch.index');
     Route::post('/pitch/upload', [PitchController::class, 'upload'])->name('pitch.upload');
