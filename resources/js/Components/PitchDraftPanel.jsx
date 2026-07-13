@@ -4,9 +4,7 @@ import { PanelRightClose } from 'lucide-react';
 import { route } from 'ziggy-js';
 import {
     PITCH_DRAFT_BLOCKS,
-    createEmptyDraft,
-    draftHasContent,
-    saveDraft,
+    blocksToDraft,
 } from '@/lib/pitchDraft';
 
 /**
@@ -15,6 +13,11 @@ import {
 export default function PitchDraftPanel({
     draft,
     onChange,
+    onClear,
+    onUndo,
+    canUndo = false,
+    highlightedBlocks = [],
+    statusMessage = null,
     visible = true,
     width,
     minWidth = 280,
@@ -37,24 +40,8 @@ export default function PitchDraftPanel({
             ...draft.blocks,
             [key]: value,
         };
-        const text = PITCH_DRAFT_BLOCKS
-            .map((block) => nextBlocks[block.key]?.trim())
-            .filter(Boolean)
-            .join('\n\n');
 
-        onChange(saveDraft({ ...draft, blocks: nextBlocks, text }));
-    };
-
-    const clearDraft = () => {
-        if (!draftHasContent(draft)) {
-            return;
-        }
-
-        if (!window.confirm('Очистить черновик питча?')) {
-            return;
-        }
-
-        onChange(saveDraft(createEmptyDraft()));
+        onChange(blocksToDraft(nextBlocks, draft.updatedAt));
     };
 
     if (!visible) {
@@ -94,10 +81,20 @@ export default function PitchDraftPanel({
             <div className="pitch-draft-head">
                 <div className="pitch-draft-title">Черновик питча</div>
                 <div className="pitch-draft-actions">
+                    {canUndo && onUndo && (
+                        <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            onClick={onUndo}
+                            aria-label="Отменить изменение черновика"
+                        >
+                            Отменить
+                        </button>
+                    )}
                     <button
                         type="button"
                         className="btn btn-ghost btn-sm"
-                        onClick={clearDraft}
+                        onClick={onClear}
                         aria-label="Очистить черновик"
                     >
                         Очистить
@@ -117,9 +114,18 @@ export default function PitchDraftPanel({
                 </div>
             </div>
 
+            {statusMessage && (
+                <div className="pitch-draft-status" role="status">
+                    {statusMessage}
+                </div>
+            )}
+
             <div className="pitch-draft-list">
                 {blocks.map((block) => (
-                    <section key={block.key} className="pitch-draft-block">
+                    <section
+                        key={block.key}
+                        className={`pitch-draft-block${highlightedBlocks.includes(block.key) ? ' is-highlighted' : ''}`}
+                    >
                         <h3 className="pitch-draft-block-title">{block.title}</h3>
                         <textarea
                             className="pitch-draft-input"

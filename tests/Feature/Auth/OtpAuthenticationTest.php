@@ -4,6 +4,7 @@ namespace Tests\Feature\Auth;
 
 use App\Mail\OtpCodeMail;
 use App\Models\User;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
@@ -91,5 +92,25 @@ class OtpAuthenticationTest extends TestCase
 
         $response->assertRedirect(route('login'));
         $this->assertGuest();
+    }
+
+    public function test_local_environment_logs_in_without_otp(): void
+    {
+        Mail::fake();
+        $this->app['env'] = 'local';
+        $this->withoutMiddleware([
+            PreventRequestForgery::class,
+        ]);
+
+        $response = $this->post(route('auth.send-code'), [
+            'email' => 'dev@example.com',
+        ]);
+
+        $response->assertRedirect(route('pitch.index'));
+        $this->assertAuthenticated();
+        $this->assertDatabaseHas('users', [
+            'email' => 'dev@example.com',
+        ]);
+        Mail::assertNothingSent();
     }
 }

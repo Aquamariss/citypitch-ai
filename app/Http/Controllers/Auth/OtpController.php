@@ -22,12 +22,22 @@ class OtpController extends Controller
             return redirect()->route('pitch.index');
         }
 
-        return Inertia::render('Auth/Login');
+        return Inertia::render('Auth/Login', [
+            'otpRequired' => $this->otpService->isOtpRequired(),
+        ]);
     }
 
     public function sendCode(SendOtpRequest $request)
     {
-        $this->otpService->sendCode($request->validated('email'));
+        $email = $request->validated('email');
+
+        if (! $this->otpService->isOtpRequired()) {
+            $this->otpService->authenticateSession($request, $email);
+
+            return redirect()->intended(route('pitch.index', absolute: false));
+        }
+
+        $this->otpService->sendCode($email);
 
         return back()->with('status', 'code-sent');
     }

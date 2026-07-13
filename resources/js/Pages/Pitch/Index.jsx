@@ -183,7 +183,7 @@ function HistoryView({ historyPitches, attemptsUsed, maxAttempts }) {
 
 export default function Index() {
     const { props, url } = usePage();
-    const { default_duration, attempts_used, max_attempts, history_pitches = [] } = props;
+    const { default_duration, attempts_used, max_attempts, history_pitches = [], draft_session = null } = props;
     const canAttempt = attempts_used < max_attempts;
 
     const activeTab = useMemo(() => {
@@ -221,7 +221,7 @@ export default function Index() {
                     </div>
                 </div>
             ) : (
-                <RecordingStudio defaultDuration={default_duration} />
+                <RecordingStudio defaultDuration={default_duration} draftSession={draft_session} />
             )}
         </AppLayout>
     );

@@ -17,14 +17,7 @@ class PitchWriterChatRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'messages' => [
-                'required',
-                'array',
-                'min:1',
-                'max:'.config('pitching.writer_max_messages', 20),
-            ],
-            'messages.*.role' => ['required', 'string', 'in:user,assistant'],
-            'messages.*.content' => [
+            'content' => [
                 'required',
                 'string',
                 'max:'.config('pitching.writer_max_message_length', 4000),

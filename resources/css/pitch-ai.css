@@ -790,6 +790,19 @@ h1, h2, h3, h4 {
   border-bottom: 1px solid var(--border);
 }
 
+.writer-limits {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.writer-toolbar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .writer-toolbar h1 { font-size: 15px; font-weight: 600; }
 
 .draft-toggle {
@@ -1005,6 +1018,21 @@ h1, h2, h3, h4 {
   border-radius: 12px;
   background: color-mix(in oklch, var(--fg) 4%, var(--surface));
   border: 1px solid var(--border);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pitch-draft-block.is-highlighted {
+  border-color: color-mix(in oklch, var(--accent) 55%, var(--border));
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+
+.pitch-draft-status {
+  margin: 0 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--accent-subtle);
+  color: var(--fg);
+  font-size: 12px;
 }
 
 .pitch-draft-block-title {

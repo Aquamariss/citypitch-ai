@@ -6,7 +6,7 @@ import ThemeToggle from '@/Components/ThemeToggle';
 import LogoMark from '@/Components/LogoMark';
 
 export default function Login() {
-    const { status, errors: pageErrors } = usePage().props;
+    const { status, errors: pageErrors, otpRequired = true } = usePage().props;
     const [step, setStep] = useState(status === 'code-sent' ? 'code' : 'email');
 
     const { data, setData, post, processing, errors, clearErrors } = useForm({
@@ -18,7 +18,11 @@ export default function Login() {
         e.preventDefault();
         post(route('auth.send-code'), {
             preserveScroll: true,
-            onSuccess: () => setStep('code'),
+            onSuccess: () => {
+                if (otpRequired) {
+                    setStep('code');
+                }
+            },
         });
     };
 
@@ -56,7 +60,11 @@ export default function Login() {
                 {!showCode ? (
                     <form onSubmit={submitEmail}>
                         <h2>Вход по email</h2>
-                        <p className="lead">Без пароля. Пришлём одноразовый код для доступа к студии.</p>
+                        <p className="lead">
+                            {otpRequired
+                                ? 'Без пароля. Пришлём одноразовый код для доступа к студии.'
+                                : 'Локальная разработка: введите email и войдите без кода.'}
+                        </p>
 
                         <div className={`field${errors.email ? ' has-error' : ''}`}>
                             <label htmlFor="login-email">Email</label>
@@ -92,7 +100,13 @@ export default function Login() {
 
                         <div className="login-actions">
                             <button type="submit" className="btn btn-primary" disabled={processing}>
-                                {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Получить код'}
+                                {processing ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : otpRequired ? (
+                                    'Получить код'
+                                ) : (
+                                    'Войти'
+                                )}
                             </button>
                         </div>
                     </form>

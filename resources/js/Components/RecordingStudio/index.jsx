@@ -17,7 +17,7 @@ import PitchDraftPanel from '@/Components/PitchDraftPanel';
 import useRecordingCountdown from '@/hooks/useRecordingCountdown';
 import useRecordingHotkeys from '@/hooks/useRecordingHotkeys';
 import useResizableSidePanel from '@/hooks/useResizableSidePanel';
-import { getStoredDraft } from '@/lib/pitchDraft';
+import { usePitchDraft } from '@/hooks/usePitchDraft';
 import CameraMirror from './CameraMirror';
 import PitchRulesDrawer from './PitchRulesDrawer';
 import StudioReview from './StudioReview';
@@ -31,13 +31,24 @@ function formatClock(seconds = 0) {
     return `${m}:${s}`;
 }
 
-export default function RecordingStudio({ defaultDuration }) {
+export default function RecordingStudio({ defaultDuration, draftSession = null }) {
     const [mode, setMode] = useState('video');
     const [rulesOpen, setRulesOpen] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
     const [studioState, setStudioState] = useState(null);
     const [isFullscreen, setIsFullscreen] = useState(false);
-    const [draft, setDraft] = useState(() => getStoredDraft());
+    const {
+        draft,
+        canUndo,
+        statusMessage,
+        highlightedBlocks,
+        updateDraftLocally,
+        clearDraft,
+        undoDraft,
+    } = usePitchDraft({
+        initialSession: draftSession,
+        enableLocalImport: true,
+    });
     const stageRef = useRef(null);
 
     const draftPanel = useResizableSidePanel({
@@ -411,8 +422,12 @@ export default function RecordingStudio({ defaultDuration }) {
                         {draftPanel.visible && (
                             <PitchDraftPanel
                                 draft={draft}
-                                onChange={setDraft}
-                                visible
+                                onChange={updateDraftLocally}
+                                onClear={clearDraft}
+                                onUndo={undoDraft}
+                                canUndo={canUndo}
+                                highlightedBlocks={highlightedBlocks}
+                                statusMessage={statusMessage}
                                 width={draftPanel.width}
                                 minWidth={draftPanel.minWidth}
                                 maxWidth={draftPanel.maxWidth}

@@ -1,104 +1,56 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useStream } from '@laravel/stream-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { route } from 'ziggy-js';
+import { getCsrfToken, readSseStream } from '@/lib/sse';
 
-function resolveStreamErrorMessage(error) {
-    const raw = error?.message ?? '';
+function resolveErrorMessage(payload) {
+    const raw = payload?.message ?? payload?.raw ?? '';
 
-    if (raw.includes('Превышен дневной лимит') || raw.includes('Too Many Attempts')) {
+    if (String(raw).includes('Превышен') || String(raw).includes('лимит')) {
         return 'Превышен лимит сообщений. Попробуйте позже.';
     }
 
-    try {
-        const parsed = JSON.parse(raw);
-
-        if (parsed?.message) {
-            if (String(parsed.message).includes('Превышен')) {
-                return 'Превышен лимит сообщений. Попробуйте позже.';
-            }
-
-            return parsed.message;
-        }
-    } catch {
-        // Not JSON — fall through.
+    if (String(raw).includes('генерация')) {
+        return String(raw);
     }
 
     return 'Не удалось получить ответ. Попробуйте позже.';
 }
 
-export function usePitchWriterChat() {
-    const [messages, setMessages] = useState([]);
+export function usePitchWriterChat({
+    initialMessages = [],
+    onDraftUpdated,
+    onLimitsUpdated,
+} = {}) {
+    const [messages, setMessages] = useState(() => initialMessages.map((message) => ({
+        id: message.id,
+        role: message.role,
+        content: message.content,
+        draft_patch: message.draft_patch ?? null,
+    })));
     const [errors, setErrors] = useState([]);
-    const streamContentRef = useRef('');
+    const [streamingText, setStreamingText] = useState('');
+    const [isBusy, setIsBusy] = useState(false);
     const messagesRef = useRef(messages);
-    const failedRef = useRef(false);
+    const abortRef = useRef(null);
     const scrollRef = useRef(null);
+    const streamBufferRef = useRef('');
 
     useEffect(() => {
         messagesRef.current = messages;
     }, [messages]);
 
-    const commitAssistantMessage = (content) => {
-        const trimmed = content.trim();
-
-        if (!trimmed) {
-            return;
-        }
-
-        setMessages((previous) => [
-            ...previous,
-            { id: `assistant-${Date.now()}`, role: 'assistant', content: trimmed },
-        ]);
-    };
-
-    const { data, isFetching, isStreaming, send, cancel } = useStream(route('pitch-writer.chat'), {
-        onResponse: (response) => {
-            if (response.ok) {
-                failedRef.current = false;
-                return;
-            }
-
-            failedRef.current = true;
-
-            const message = response.status === 429
-                ? 'Превышен лимит сообщений. Попробуйте позже.'
-                : 'Не удалось получить ответ. Попробуйте позже.';
-
-            setErrors([message]);
-        },
-        onError: (error) => {
-            failedRef.current = true;
-            setErrors([resolveStreamErrorMessage(error)]);
-        },
-        onFinish: () => {
-            if (!failedRef.current) {
-                commitAssistantMessage(streamContentRef.current);
-            }
-        },
-        onCancel: () => {
-            if (!failedRef.current) {
-                commitAssistantMessage(streamContentRef.current);
-            }
-        },
-    });
-
-    useEffect(() => {
-        streamContentRef.current = data;
-    }, [data]);
-
-    const isBusy = isFetching || isStreaming;
-    const showTypingIndicator = isFetching && !data;
+    const showTypingIndicator = isBusy && !streamingText;
 
     const displayMessages = useMemo(() => {
-        if (isBusy && data) {
+        if (isBusy && streamingText) {
             return [
                 ...messages,
-                { id: 'streaming', role: 'assistant', content: data, streaming: true },
+                { id: 'streaming', role: 'assistant', content: streamingText, streaming: true },
             ];
         }
 
         return messages;
-    }, [messages, isBusy, data]);
+    }, [messages, isBusy, streamingText]);
 
     useEffect(() => {
         const element = scrollRef.current;
@@ -106,9 +58,14 @@ export function usePitchWriterChat() {
         if (element) {
             element.scrollTop = element.scrollHeight;
         }
-    }, [displayMessages, showTypingIndicator, data]);
+    }, [displayMessages, showTypingIndicator, streamingText]);
 
-    const sendMessage = (content) => {
+    const stopGeneration = useCallback(() => {
+        abortRef.current?.abort();
+        abortRef.current = null;
+    }, []);
+
+    const sendMessage = useCallback(async (content) => {
         const trimmed = content.trim();
 
         if (!trimmed || isBusy) {
@@ -116,7 +73,8 @@ export function usePitchWriterChat() {
         }
 
         setErrors([]);
-        failedRef.current = false;
+        setStreamingText('');
+        streamBufferRef.current = '';
 
         const userMessage = {
             id: `user-${Date.now()}`,
@@ -124,20 +82,128 @@ export function usePitchWriterChat() {
             content: trimmed,
         };
 
-        const nextMessages = [...messagesRef.current, userMessage];
-        setMessages(nextMessages);
+        setMessages((previous) => [...previous, userMessage]);
+        setIsBusy(true);
 
-        send({
-            messages: nextMessages.map(({ role, content: messageContent }) => ({
-                role,
-                content: messageContent,
-            })),
-        });
-    };
+        const controller = new AbortController();
+        abortRef.current = controller;
 
-    const stopGeneration = () => {
-        cancel();
-    };
+        try {
+            const response = await fetch(route('pitch-writer.chat'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'text/event-stream',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': getCsrfToken(),
+                    'X-XSRF-TOKEN': getCsrfToken(),
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ content: trimmed }),
+                signal: controller.signal,
+            });
+
+            if (!response.ok) {
+                const message = response.status === 429
+                    ? 'Превышен лимит сообщений. Попробуйте позже.'
+                    : 'Не удалось получить ответ. Попробуйте позже.';
+                setErrors([message]);
+                return;
+            }
+
+            if (!response.body) {
+                setErrors(['Не удалось получить ответ. Попробуйте позже.']);
+                return;
+            }
+
+            await readSseStream(response.body, {
+                signal: controller.signal,
+                onEvent: (event, data) => {
+                    if (event === 'message.delta' && data?.text) {
+                        streamBufferRef.current += data.text;
+                        setStreamingText(streamBufferRef.current);
+                        return;
+                    }
+
+                    if (event === 'draft.updated') {
+                        onDraftUpdated?.(data);
+                        return;
+                    }
+
+                    if (event === 'message.done') {
+                        const finalContent = data?.message?.content
+                            ?? streamBufferRef.current.trim();
+
+                        if (finalContent) {
+                            setMessages((previous) => [
+                                ...previous,
+                                {
+                                    id: data?.message?.id ?? `assistant-${Date.now()}`,
+                                    role: 'assistant',
+                                    content: finalContent,
+                                    draft_patch: data?.message?.draft_patch ?? null,
+                                },
+                            ]);
+                        }
+
+                        setStreamingText('');
+                        streamBufferRef.current = '';
+
+                        if (data?.limits) {
+                            onLimitsUpdated?.(data.limits);
+                        }
+
+                        return;
+                    }
+
+                    if (event === 'error') {
+                        setErrors([resolveErrorMessage(data)]);
+                    }
+                },
+            });
+
+            // Aborted mid-stream: commit partial assistant text if any.
+            if (controller.signal.aborted && streamBufferRef.current.trim()) {
+                setMessages((previous) => [
+                    ...previous,
+                    {
+                        id: `assistant-${Date.now()}`,
+                        role: 'assistant',
+                        content: streamBufferRef.current.trim(),
+                    },
+                ]);
+                setStreamingText('');
+                streamBufferRef.current = '';
+            }
+        } catch (error) {
+            if (error?.name !== 'AbortError') {
+                setErrors([resolveErrorMessage({ message: error?.message })]);
+            } else if (streamBufferRef.current.trim()) {
+                setMessages((previous) => [
+                    ...previous,
+                    {
+                        id: `assistant-${Date.now()}`,
+                        role: 'assistant',
+                        content: streamBufferRef.current.trim(),
+                    },
+                ]);
+                setStreamingText('');
+                streamBufferRef.current = '';
+            }
+        } finally {
+            setIsBusy(false);
+            abortRef.current = null;
+        }
+    }, [isBusy, onDraftUpdated, onLimitsUpdated]);
+
+    const replaceMessages = useCallback((nextMessages) => {
+        setMessages(nextMessages.map((message) => ({
+            id: message.id,
+            role: message.role,
+            content: message.content,
+            draft_patch: message.draft_patch ?? null,
+        })));
+    }, []);
 
     return {
         messages,
@@ -147,6 +213,7 @@ export function usePitchWriterChat() {
         showTypingIndicator,
         sendMessage,
         stopGeneration,
+        replaceMessages,
         scrollRef,
     };
 }

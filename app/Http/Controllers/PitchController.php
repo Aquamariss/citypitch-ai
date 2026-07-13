@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Domains\Pitching\Enums\PitchStatus;
 use App\Domains\Pitching\Services\PitchingService;
+use App\Domains\Pitching\Services\PitchWriterSessionService;
 use App\Http\Requests\UploadPitchRequest;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -11,14 +12,18 @@ use Inertia\Inertia;
 class PitchController extends Controller
 {
     public function __construct(
-        private PitchingService $pitchingService
+        private PitchingService $pitchingService,
+        private PitchWriterSessionService $pitchWriterSessionService,
     ) {}
 
     public function index(Request $request)
     {
+        $draftPayload = $this->pitchWriterSessionService->payloadForUser($request->user());
+
         return Inertia::render('Pitch/Index', [
             'default_duration' => config('pitching.default_duration_seconds', 180),
             'history_pitches' => $this->pitchingService->getCompletedHistory($request->user()),
+            'draft_session' => $draftPayload['session'],
         ]);
     }
 

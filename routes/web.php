@@ -19,6 +19,14 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/pitch-writer/chat', [PitchWriterController::class, 'chat'])
         ->middleware('throttle:10,1')
         ->name('pitch-writer.chat');
+    Route::patch('/pitch-writer/draft', [PitchWriterController::class, 'updateDraft'])
+        ->name('pitch-writer.draft.update');
+    Route::post('/pitch-writer/draft/import', [PitchWriterController::class, 'importDraft'])
+        ->name('pitch-writer.draft.import');
+    Route::post('/pitch-writer/draft/undo', [PitchWriterController::class, 'undoDraft'])
+        ->name('pitch-writer.draft.undo');
+    Route::post('/pitch-writer/session/reset', [PitchWriterController::class, 'reset'])
+        ->name('pitch-writer.session.reset');
 
     Route::get('/pitch', [PitchController::class, 'index'])->name('pitch.index');
     Route::post('/pitch/upload', [PitchController::class, 'upload'])->name('pitch.upload');

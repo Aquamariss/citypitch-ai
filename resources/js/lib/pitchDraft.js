@@ -18,6 +18,31 @@ export function createEmptyDraft() {
     };
 }
 
+export function blocksToDraft(blocks = {}, updatedAt = null) {
+    const normalizedBlocks = {
+        ...createEmptyDraft().blocks,
+        ...blocks,
+    };
+    const text = PITCH_DRAFT_BLOCKS
+        .map((block) => normalizedBlocks[block.key]?.trim())
+        .filter(Boolean)
+        .join('\n\n');
+
+    return {
+        text,
+        blocks: normalizedBlocks,
+        updatedAt,
+    };
+}
+
+export function sessionToDraft(session) {
+    if (!session) {
+        return createEmptyDraft();
+    }
+
+    return blocksToDraft(session.blocks ?? {}, session.updated_at ?? null);
+}
+
 export function getStoredDraft() {
     if (typeof window === 'undefined') {
         return createEmptyDraft();
@@ -27,7 +52,6 @@ export function getStoredDraft() {
         const stored = localStorage.getItem(PITCH_DRAFT_STORAGE_KEY);
 
         if (!stored) {
-            // Migrate legacy free-form script if present.
             const legacy = localStorage.getItem('pitch-ai-script');
 
             if (legacy?.trim()) {
@@ -56,39 +80,13 @@ export function getStoredDraft() {
     }
 }
 
-export function saveDraft(draft) {
+export function clearStoredDraft() {
     if (typeof window === 'undefined') {
-        return draft;
+        return;
     }
 
-    const next = {
-        ...createEmptyDraft(),
-        ...draft,
-        blocks: {
-            ...createEmptyDraft().blocks,
-            ...(draft.blocks ?? {}),
-        },
-        updatedAt: new Date().toISOString(),
-    };
-
-    localStorage.setItem(PITCH_DRAFT_STORAGE_KEY, JSON.stringify(next));
-    // Keep legacy key in sync for any leftover readers.
-    localStorage.setItem('pitch-ai-script', next.text ?? '');
-
-    return next;
-}
-
-export function appendToDraftText(currentDraft, content) {
-    const trimmed = content.trim();
-
-    if (!trimmed) {
-        return currentDraft;
-    }
-
-    const existing = (currentDraft.text ?? '').trim();
-    const text = existing ? `${existing}\n\n${trimmed}` : trimmed;
-
-    return saveDraft({ ...currentDraft, text });
+    localStorage.removeItem(PITCH_DRAFT_STORAGE_KEY);
+    localStorage.removeItem('pitch-ai-script');
 }
 
 export function draftHasContent(draft) {

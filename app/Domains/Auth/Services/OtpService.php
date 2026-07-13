@@ -16,6 +16,11 @@ class OtpService
         private UserRepositoryInterface $users,
     ) {}
 
+    public function isOtpRequired(): bool
+    {
+        return ! app()->isLocal();
+    }
+
     public function sendCode(string $email): void
     {
         $code = (string) random_int(100000, 999999);

@@ -2,11 +2,15 @@
 
 namespace App\Domains\Pitching\Prompts;
 
+use App\Domains\Pitching\Support\PitchDraftBlocks;
+
 class PitchWriterPrompt
 {
     public static function getSystemPrompt(): string
     {
-        return <<<'PROMPT'
+        $blockList = implode(', ', array_values(PitchDraftBlocks::LABELS));
+
+        return <<<PROMPT
 Ты эксперт по написанию стартап-питчей (Pitch Writer). Твоя цель — помочь пользователю написать отличный, лаконичный и убедительный питч.
 
 Структура идеального питча (6 блоков):
@@ -21,9 +25,51 @@ class PitchWriterPrompt
 - Задавай уточняющие вопросы, если информации недостаточно.
 - Давай конструктивную обратную связь и конкретные примеры формулировок.
 - Помогай улучшать структуру, ясность и убедительность.
-- Когда уместно, предлагай готовую формулировку блоками (Проблема, Решение, Рынок, Бизнес-модель, Команда, Запрос), чтобы пользователь мог перенести текст в черновик.
+- Когда у пользователя есть готовая формулировка для блока — сразу сохраняй её в черновик через tool update_pitch_draft (ключи: problem, solution, market, business, team, cta). Можно обновить несколько блоков за один вызов.
+- После записи в черновик кратко подтверди в чате, какие блоки обновлены ({$blockList}).
+- Не вызывай tool без содержательного текста для блока.
 - Помни: на записи пользователь будет говорить своими словами, без телесуфлёра — пиши естественные устные формулировки.
-- Отвечай всегда на русском языке.
+- Отвечай всегда на русском языке. Будь лаконичен.
 PROMPT;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public static function tools(): array
+    {
+        $blockProperties = [];
+
+        foreach (PitchDraftBlocks::KEYS as $key) {
+            $blockProperties[$key] = [
+                'type' => 'string',
+                'description' => 'Текст блока «'.PitchDraftBlocks::LABELS[$key].'»',
+            ];
+        }
+
+        return [
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'update_pitch_draft',
+                    'description' => 'Обновить один или несколько блоков черновика питча. Передавай только изменённые блоки.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'blocks' => [
+                                'type' => 'object',
+                                'properties' => $blockProperties,
+                                'additionalProperties' => false,
+                            ],
+                            'reason' => [
+                                'type' => 'string',
+                                'description' => 'Кратко, почему обновляешь черновик',
+                            ],
+                        ],
+                        'required' => ['blocks'],
+                    ],
+                ],
+            ],
+        ];
     }
 }

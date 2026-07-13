@@ -10,4 +10,11 @@ return [
     'writer_max_message_length' => env('PITCH_WRITER_MAX_MESSAGE_LENGTH', 4000),
     'writer_daily_messages' => env('PITCH_WRITER_DAILY_MESSAGES', 50),
     'writer_request_timeout' => env('OPENAI_WRITER_TIMEOUT', 120),
+
+    'writer_context_messages' => env('PITCH_WRITER_CONTEXT_MESSAGES', 16),
+    'writer_max_completion_tokens' => env('PITCH_WRITER_MAX_COMPLETION_TOKENS', 1000),
+    'writer_daily_token_budget' => env('PITCH_WRITER_DAILY_TOKEN_BUDGET', 100000),
+    'writer_max_block_length' => env('PITCH_WRITER_MAX_BLOCK_LENGTH', 1500),
+    'writer_max_tool_rounds' => env('PITCH_WRITER_MAX_TOOL_ROUNDS', 1),
+    'writer_max_revisions' => env('PITCH_WRITER_MAX_REVISIONS', 20),
 ];

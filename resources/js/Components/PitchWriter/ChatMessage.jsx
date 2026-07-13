@@ -1,9 +1,8 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-export default function ChatMessage({ message, isStreaming = false, onAddToDraft }) {
+export default function ChatMessage({ message, isStreaming = false }) {
     const isUser = message.role === 'user';
-    const canAddToDraft = !isUser && !isStreaming && Boolean(message.content?.trim()) && onAddToDraft;
 
     return (
         <div className={`chat-msg chat-msg--${isUser ? 'user' : 'ai'}`}>
@@ -25,16 +24,6 @@ export default function ChatMessage({ message, isStreaming = false, onAddToDraft
                         </div>
                     )}
                 </div>
-
-                {canAddToDraft && (
-                    <button
-                        type="button"
-                        onClick={() => onAddToDraft(message.content)}
-                        className="btn btn-ghost btn-sm self-start"
-                    >
-                        В черновик
-                    </button>
-                )}
             </div>
         </div>
     );

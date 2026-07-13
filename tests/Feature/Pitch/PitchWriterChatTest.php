@@ -13,20 +13,10 @@ class PitchWriterChatTest extends TestCase
 {
     use RefreshDatabase;
 
-    /**
-     * @return array<int, array{role: string, content: string}>
-     */
-    private function validMessages(): array
-    {
-        return [
-            ['role' => 'user', 'content' => 'Помоги написать питч для edtech стартапа.'],
-        ];
-    }
-
     public function test_guest_cannot_access_chat(): void
     {
         $response = $this->postJson(route('pitch-writer.chat'), [
-            'messages' => $this->validMessages(),
+            'content' => 'Помоги написать питч',
         ]);
 
         $response->assertUnauthorized();
@@ -39,34 +29,45 @@ class PitchWriterChatTest extends TestCase
         $response->assertRedirect(route('login'));
     }
 
-    public function test_validation_rejects_invalid_messages(): void
+    public function test_index_creates_session_and_returns_payload(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->get(route('pitch-writer.index'));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('PitchWriter/Index')
+            ->has('session.id')
+            ->has('session.blocks')
+            ->has('messages')
+            ->has('limits.messages_remaining')
+            ->has('limits.tokens_remaining_approx')
+            ->where('can_undo', false)
+        );
+
+        $this->assertDatabaseHas('pitch_writer_sessions', [
+            'user_id' => $user->id,
+        ]);
+    }
+
+    public function test_validation_rejects_invalid_content(): void
     {
         $user = User::factory()->create();
 
         $this->actingAs($user)
             ->postJson(route('pitch-writer.chat'), [])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['messages']);
-
-        $this->actingAs($user)
-            ->postJson(route('pitch-writer.chat'), [
-                'messages' => [
-                    ['role' => 'system', 'content' => 'hack'],
-                ],
-            ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['messages.0.role']);
+            ->assertJsonValidationErrors(['content']);
 
         config(['pitching.writer_max_message_length' => 10]);
 
         $this->actingAs($user)
             ->postJson(route('pitch-writer.chat'), [
-                'messages' => [
-                    ['role' => 'user', 'content' => str_repeat('a', 11)],
-                ],
+                'content' => str_repeat('a', 11),
             ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['messages.0.content']);
+            ->assertJsonValidationErrors(['content']);
     }
 
     public function test_authenticated_user_can_stream_chat(): void
@@ -78,19 +79,25 @@ class PitchWriterChatTest extends TestCase
                 ->once()
                 ->with($user->id);
 
-            $mock->shouldReceive('streamChat')
+            $mock->shouldReceive('streamTurn')
                 ->once()
-                ->with($user->id, $this->validMessages())
-                ->andReturn($this->streamChunks(['Привет', ' мир']));
+                ->withArgs(fn (User $passedUser, string $content) => $passedUser->is($user)
+                    && $content === 'Помоги написать питч для edtech стартапа.')
+                ->andReturn($this->streamChunks([
+                    "event: message.delta\ndata: {\"text\":\"Привет\"}\n\n",
+                    "event: message.delta\ndata: {\"text\":\" мир\"}\n\n",
+                    "event: message.done\ndata: {\"message\":null,\"limits\":{\"messages_remaining\":49,\"tokens_remaining_approx\":99000}}\n\n",
+                ]));
         });
 
         $response = $this->actingAs($user)->post(route('pitch-writer.chat'), [
-            'messages' => $this->validMessages(),
+            'content' => 'Помоги написать питч для edtech стартапа.',
         ]);
 
         $response->assertOk();
-        $response->assertHeader('Content-Type', 'text/plain; charset=utf-8');
-        $this->assertSame('Привет мир', $response->streamedContent());
+        $response->assertHeader('Content-Type', 'text/event-stream; charset=utf-8');
+        $this->assertStringContainsString('event: message.delta', $response->streamedContent());
+        $this->assertStringContainsString('Привет', $response->streamedContent());
     }
 
     public function test_daily_limit_returns_429(): void
@@ -102,7 +109,7 @@ class PitchWriterChatTest extends TestCase
         Cache::put('pitch-writer:'.$user->id.':'.now()->toDateString(), 2, now()->endOfDay());
 
         $response = $this->actingAs($user)->postJson(route('pitch-writer.chat'), [
-            'messages' => $this->validMessages(),
+            'content' => 'Помоги написать питч',
         ]);
 
         $response->assertStatus(429);
@@ -117,22 +124,47 @@ class PitchWriterChatTest extends TestCase
                 ->times(10)
                 ->with($user->id);
 
-            $mock->shouldReceive('streamChat')
+            $mock->shouldReceive('streamTurn')
                 ->times(10)
-                ->andReturnUsing(fn () => $this->streamChunks(['ok']));
+                ->andReturnUsing(fn () => $this->streamChunks([
+                    "event: message.done\ndata: {\"message\":null}\n\n",
+                ]));
         });
 
         for ($i = 0; $i < 10; $i++) {
             $response = $this->actingAs($user)
-                ->post(route('pitch-writer.chat'), ['messages' => $this->validMessages()]);
+                ->post(route('pitch-writer.chat'), ['content' => 'Сообщение '.$i]);
 
             $response->assertOk();
-            $this->assertSame('ok', $response->streamedContent());
+            $response->streamedContent();
         }
 
         $this->actingAs($user)
-            ->postJson(route('pitch-writer.chat'), ['messages' => $this->validMessages()])
+            ->postJson(route('pitch-writer.chat'), ['content' => 'Ещё одно'])
             ->assertStatus(429);
+    }
+
+    public function test_chat_endpoint_streams_when_service_is_mocked(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->get(route('pitch-writer.index'))->assertOk();
+
+        $this->mock(PitchWriterService::class, function ($mock) use ($user): void {
+            $mock->shouldReceive('assertDailyLimitNotExceeded')->once()->with($user->id);
+            $mock->shouldReceive('streamTurn')
+                ->once()
+                ->andReturn($this->streamChunks([
+                    "event: message.delta\ndata: {\"text\":\"Ок\"}\n\n",
+                    "event: message.done\ndata: {\"message\":{\"id\":\"1\",\"role\":\"assistant\",\"content\":\"Ок\",\"draft_patch\":null}}\n\n",
+                ]));
+        });
+
+        $response = $this->actingAs($user)
+            ->post(route('pitch-writer.chat'), ['content' => 'Нужен блок проблемы']);
+
+        $response->assertOk();
+        $this->assertStringContainsString('Ок', $response->streamedContent());
     }
 
     /**

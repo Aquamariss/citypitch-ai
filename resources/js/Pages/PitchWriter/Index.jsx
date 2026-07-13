@@ -1,19 +1,25 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Head } from '@inertiajs/react';
 import { ChevronRight, PanelRightClose } from 'lucide-react';
+import { route } from 'ziggy-js';
 import AppLayout from '@/Layouts/AppLayout';
 import ErrorBanner from '@/Components/PitchRecorder/ErrorBanner';
 import PitchDraftPanel from '@/Components/PitchDraftPanel';
 import ChatComposer from '@/Components/PitchWriter/ChatComposer';
 import ChatEmptyState from '@/Components/PitchWriter/ChatEmptyState';
 import ChatTranscript from '@/Components/PitchWriter/ChatTranscript';
+import { usePitchDraft } from '@/hooks/usePitchDraft';
 import { usePitchWriterChat } from '@/hooks/usePitchWriterChat';
 import useResizableSidePanel from '@/hooks/useResizableSidePanel';
-import { appendToDraftText, getStoredDraft } from '@/lib/pitchDraft';
+import { getCsrfToken } from '@/lib/sse';
 
-export default function PitchWriter() {
-    const [draft, setDraft] = useState(() => getStoredDraft());
+export default function PitchWriter({
+    session,
+    messages: initialMessages = [],
+    limits: initialLimits = null,
+}) {
     const writerLayoutRef = useRef(null);
+    const [limits, setLimits] = useState(initialLimits);
 
     const draftPanel = useResizableSidePanel({
         widthKey: 'pitch-ai-draft-width',
@@ -26,6 +32,25 @@ export default function PitchWriter() {
     });
 
     const {
+        draft,
+        canUndo,
+        statusMessage,
+        highlightedBlocks,
+        updateDraftLocally,
+        clearDraft,
+        undoDraft,
+        handleAgentDraftUpdate,
+        applySession,
+    } = usePitchDraft({
+        initialSession: session,
+        enableLocalImport: true,
+    });
+
+    const handleDraftUpdated = useCallback((data) => {
+        handleAgentDraftUpdate(data);
+    }, [handleAgentDraftUpdate]);
+
+    const {
         messages,
         displayMessages,
         errors,
@@ -33,14 +58,50 @@ export default function PitchWriter() {
         showTypingIndicator,
         sendMessage,
         stopGeneration,
+        replaceMessages,
         scrollRef,
-    } = usePitchWriterChat();
+    } = usePitchWriterChat({
+        initialMessages,
+        onDraftUpdated: handleDraftUpdated,
+        onLimitsUpdated: setLimits,
+    });
+
+    const resetChat = useCallback(async () => {
+        if (!window.confirm('Начать новый чат? История сообщений будет очищена.')) {
+            return;
+        }
+
+        const response = await fetch(route('pitch-writer.session.reset'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': getCsrfToken(),
+                'X-XSRF-TOKEN': getCsrfToken(),
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ clear_draft: false }),
+        });
+
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            return;
+        }
+
+        replaceMessages(payload.messages ?? []);
+
+        if (payload.session) {
+            applySession(payload.session, { canUndo: false });
+        }
+
+        if (payload.limits) {
+            setLimits(payload.limits);
+        }
+    }, [applySession, replaceMessages]);
 
     const showEmptyState = messages.length === 0 && !isBusy;
-
-    const handleAddToDraft = (content) => {
-        setDraft((current) => appendToDraftText(current, content));
-    };
 
     const layoutStyle = useMemo(
         () => (draftPanel.visible
@@ -60,26 +121,45 @@ export default function PitchWriter() {
             >
                 <section className="writer-chat">
                     <div className="writer-toolbar">
-                        <h1>Питч Райтер</h1>
-                        <button
-                            type="button"
-                            className="btn btn-secondary btn-sm draft-toggle"
-                            onClick={() => draftPanel.setVisible(!draftPanel.visible)}
-                            aria-expanded={draftPanel.visible}
-                            aria-controls="draft-panel"
-                        >
-                            {draftPanel.visible ? (
-                                <>
-                                    <PanelRightClose strokeWidth={2} aria-hidden="true" />
-                                    Скрыть
-                                </>
-                            ) : (
-                                <>
-                                    <ChevronRight strokeWidth={2} aria-hidden="true" />
-                                    Черновик
-                                </>
+                        <div>
+                            <h1>Питч Райтер</h1>
+                            {limits && (
+                                <p className="writer-limits caps">
+                                    Осталось {limits.messages_remaining} сообщ.
+                                </p>
                             )}
-                        </button>
+                        </div>
+                        <div className="writer-toolbar-actions">
+                            {messages.length > 0 && (
+                                <button
+                                    type="button"
+                                    className="btn btn-ghost btn-sm"
+                                    onClick={resetChat}
+                                    disabled={isBusy}
+                                >
+                                    Новый чат
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                className="btn btn-secondary btn-sm draft-toggle"
+                                onClick={() => draftPanel.setVisible(!draftPanel.visible)}
+                                aria-expanded={draftPanel.visible}
+                                aria-controls="draft-panel"
+                            >
+                                {draftPanel.visible ? (
+                                    <>
+                                        <PanelRightClose strokeWidth={2} aria-hidden="true" />
+                                        Скрыть
+                                    </>
+                                ) : (
+                                    <>
+                                        <ChevronRight strokeWidth={2} aria-hidden="true" />
+                                        Черновик
+                                    </>
+                                )}
+                            </button>
+                        </div>
                     </div>
 
                     <ErrorBanner errors={errors} />
@@ -93,7 +173,6 @@ export default function PitchWriter() {
                             messages={displayMessages}
                             showTypingIndicator={showTypingIndicator}
                             scrollRef={scrollRef}
-                            onAddToDraft={handleAddToDraft}
                         />
                     )}
 
@@ -106,7 +185,12 @@ export default function PitchWriter() {
 
                 <PitchDraftPanel
                     draft={draft}
-                    onChange={setDraft}
+                    onChange={updateDraftLocally}
+                    onClear={clearDraft}
+                    onUndo={undoDraft}
+                    canUndo={canUndo}
+                    highlightedBlocks={highlightedBlocks}
+                    statusMessage={statusMessage}
                     visible={draftPanel.visible}
                     width={draftPanel.width}
                     minWidth={draftPanel.minWidth}

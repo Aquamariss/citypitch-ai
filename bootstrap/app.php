@@ -13,6 +13,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Trust tunnel/load-balancer proxies so HTTPS scheme is detected via X-Forwarded-Proto
+        // (e.g. tuna/ngrok) and Vite assets are not generated as mixed-content http:// URLs.
+        $middleware->trustProxies(at: '*');
+
         $middleware->web(append: [
             HandleInertiaRequests::class,
         ]);
