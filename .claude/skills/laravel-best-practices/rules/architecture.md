@@ -1,25 +1,20 @@
 # Architecture Best Practices
 
-## Domain Service Classes
+## Single-Purpose Action Classes
 
-Put business operations in Service classes under `app/Services/{Domain}/`. Do not introduce `*Action` classes for domain workflows unless an existing module already uses that pattern.
+Extract discrete business operations into invokable Action classes.
 
 ```php
-class OrderService
+class CreateOrderAction
 {
-    public function __construct(
-        private OrderRepositoryInterface $orders,
-        private InventoryService $inventory,
-    ) {}
+    public function __construct(private InventoryService $inventory) {}
 
-    public function create(array $data): Order
+    public function handle(array $data): Order
     {
-        return DB::transaction(function () use ($data) {
-            $order = $this->orders->create($data);
-            $this->inventory->reserve($order);
+        $order = Order::create($data);
+        $this->inventory->reserve($order);
 
-            return $order;
-        });
+        return $order;
     }
 }
 ```
@@ -32,12 +27,11 @@ Incorrect:
 ```php
 class OrderController extends Controller
 {
-    public function store(StoreOrderRequest $request): RedirectResponse
+    public function store(StoreOrderRequest $request): OrderResource
     {
         $service = app(OrderService::class);
-        $service->create($request->validated());
 
-        return redirect()->route('orders.index');
+        return new OrderResource($service->create($request->validated()));
     }
 }
 ```
@@ -48,16 +42,14 @@ class OrderController extends Controller
 {
     public function __construct(private OrderService $service) {}
 
-    public function store(StoreOrderRequest $request): RedirectResponse
+    public function store(StoreOrderRequest $request): OrderResource
     {
-        $this->service->create($request->validated());
-
-        return redirect()->route('orders.index');
+        return new OrderResource(
+            $this->service->create($request->validated())
+        );
     }
 }
 ```
-
-For explicit HTTP API endpoints (not Inertia UI), return `OrderResource::make(...)` from the controller the same way — still via constructor-injected services.
 
 ## Code to Interfaces
 

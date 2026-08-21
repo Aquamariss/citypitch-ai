@@ -13,10 +13,6 @@ class InvalidOrderException extends Exception
 
     public function render(Request $request): Response
     {
-        if ($request->header('X-Inertia')) {
-            return back()->withErrors(['order' => 'Invalid order.']);
-        }
-
         return response()->view('errors.invalid-order', status: 422);
     }
 }
@@ -28,10 +24,6 @@ class InvalidOrderException extends Exception
 ->withExceptions(function (Exceptions $exceptions) {
     $exceptions->report(function (InvalidOrderException $e) { /* ... */ });
     $exceptions->render(function (InvalidOrderException $e, Request $request) {
-        if ($request->header('X-Inertia')) {
-            return back()->withErrors(['order' => 'Invalid order.']);
-        }
-
         return response()->view('errors.invalid-order', status: 422);
     });
 })

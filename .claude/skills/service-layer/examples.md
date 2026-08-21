@@ -99,11 +99,10 @@ class UserService
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreUserRequest;
+use App\Http\Resources\UserResource;
 use App\Services\User\UserService;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller;
-use Inertia\Inertia;
-use Inertia\Response;
 
 class UserController extends Controller
 {
@@ -111,19 +110,16 @@ class UserController extends Controller
         private readonly UserService $userService,
     ) {}
 
-    public function create(): Response
+    public function store(StoreUserRequest $request): JsonResponse
     {
-        return Inertia::render('Users/Create');
-    }
-
-    public function store(StoreUserRequest $request): RedirectResponse
-    {
-        $this->userService->register(
+        $user = $this->userService->register(
             data: $request->safe()->only(['name', 'email', 'password']),
             roleIds: $request->input('role_ids', []),
         );
 
-        return redirect()->route('users.index');
+        return (new UserResource($user->load('roles')))
+            ->response()
+            ->setStatusCode(201);
     }
 }
 
@@ -156,18 +152,72 @@ Avoid dispatching events mid-transaction unless the event implements `ShouldDisp
 
 ### Controller → Repository (read-only exception)
 
-Simple listing/filtering may call the repository directly — no business logic involved. Prefer Inertia props:
+Simple listing/filtering may call the repository directly — no business logic involved. Still accept a Form Request and return an API Resource:
 
 ```php
-public function index(IndexUsersRequest $request): Response
+public function index(IndexUsersRequest $request): AnonymousResourceCollection
 {
-    return Inertia::render('Users/Index', [
-        'users' => $this->users->search(
-            $request->validated(),
-            $request->integer('per_page', 15),
-        ),
-    ]);
+    return UserResource::collection(
+        $this->users->search($request->validated(), $request->integer('per_page', 15))
+    );
 }
 ```
 
-Use `Resource::make()` / `Resource::collection()` only for explicit HTTP API endpoints — not for Inertia pages.
+### Thin Jobs and Commands
+
+A queue job (or Artisan command) is an entrypoint — it must not contain `Process`/`Storage`/`DB`/decision logic. Move the work into a service and inject it into `handle()`.
+
+#### Incorrect
+
+```php
+// app/Jobs/ProcessVideoJob.php — ffmpeg orchestration inside the job
+class ProcessVideoJob implements ShouldQueue
+{
+    public function handle(AdvertModuleRepositoryInterface $modules): void
+    {
+        $module = $modules->find($this->moduleId);
+        $probe = Process::fromShellCommandline('ffprobe ... '.$this->videoPath)->run(); // side effect in entrypoint
+        // ... codec parsing, transcode decision, thumbnail, Storage::delete ...
+        $modules->update($this->moduleId, [...]);
+    }
+}
+```
+
+#### Correct
+
+```php
+// app/Jobs/ProcessVideoJob.php — thin adapter
+class ProcessVideoJob implements ShouldQueue
+{
+    use Queueable;
+
+    public function __construct(
+        protected int $moduleId,
+        protected string $videoPath,
+        protected string $dbPath,
+        protected string $filename,
+    ) {}
+
+    public function handle(VideoProcessingService $videoProcessingService): void
+    {
+        $videoProcessingService->processForModule(
+            $this->moduleId, $this->videoPath, $this->dbPath, $this->filename
+        );
+    }
+}
+
+// app/Services/Media/VideoProcessingService.php — owns Process/Storage/Log/decisions
+class VideoProcessingService
+{
+    public function __construct(
+        protected AdvertModuleRepositoryInterface $moduleRepository,
+    ) {}
+
+    public function processForModule(int $moduleId, string $videoPath, string $dbPath, string $filename): void
+    {
+        // ffprobe, codec/resolution decision, thumbnail, transcode, repository update
+    }
+}
+```
+
+The same shape applies to Artisan commands: `handle()` parses options, calls the service, prints the result. No `DB::transaction()` or chunk loops in the command.

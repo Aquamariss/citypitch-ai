@@ -9,8 +9,6 @@ Incorrect:
 public function show(int $id)
 {
     $post = Post::findOrFail($id);
-
-    return Inertia::render('Posts/Show', ['post' => $post]);
 }
 ```
 
@@ -18,7 +16,7 @@ Correct:
 ```php
 public function show(Post $post)
 {
-    return Inertia::render('Posts/Show', ['post' => $post]);
+    return view('posts.show', ['post' => $post]);
 }
 ```
 
@@ -32,23 +30,19 @@ Route::get('/users/{user}/posts/{post}', function (User $user, Post $post) {
 })->scopeBindings();
 ```
 
-## Prefer Inertia Web Controllers; `apiResource` Only for Explicit APIs
+## Use Resource Controllers
 
-Default UI routes use web controllers that return Inertia responses.
+Use `Route::resource()` or `apiResource()` for RESTful endpoints.
 
 ```php
 Route::resource('posts', PostController::class);
-```
-
-Use `apiResource` only when you intentionally expose an HTTP API (not to feed the Vue UI):
-
-```php
+// In routes/api.php — the /api prefix is applied automatically
 Route::apiResource('posts', Api\PostController::class);
 ```
 
 ## Keep Controllers Thin
 
-Aim for under 10 lines per method. Extract business logic to service classes. The controller owns the Inertia/`redirect` response.
+Aim for under 10 lines per method. Extract business logic to action or service classes.
 
 Incorrect:
 ```php
@@ -67,9 +61,9 @@ public function store(Request $request)
 
 Correct:
 ```php
-public function store(StorePostRequest $request, PostService $posts)
+public function store(StorePostRequest $request, CreatePostAction $create)
 {
-    $post = $posts->create($request->validated());
+    $post = $create->execute($request->validated());
 
     return redirect()->route('posts.show', $post);
 }
@@ -79,7 +73,7 @@ public function store(StorePostRequest $request, PostService $posts)
 
 Type-hinting Form Requests triggers automatic validation and authorization before the method executes.
 
-Incorrect (UI — inline validation + JSON):
+Incorrect:
 ```php
 public function store(Request $request): JsonResponse
 {
@@ -94,33 +88,16 @@ public function store(Request $request): JsonResponse
 }
 ```
 
-Correct (UI — Inertia):
+Correct:
 ```php
-public function store(StorePostRequest $request, PostService $posts): RedirectResponse
+public function store(StorePostRequest $request): JsonResponse
 {
-    $posts->create($request->validated());
+    $post = Post::create($request->validated());
 
-    return redirect()->route('posts.index');
-}
-
-public function show(Post $post): Response
-{
-    return Inertia::render('Posts/Show', [
-        'post' => $post,
-    ]);
-}
-```
-
-Correct (explicit HTTP API only):
-```php
-public function store(StorePostRequest $request, PostService $posts): JsonResponse
-{
-    $post = $posts->create($request->validated());
-
-    return PostResource::make($post)
+    return (new PostResource($post))
         ->response()
         ->setStatusCode(201);
 }
 ```
 
-Do not validate inline. Do not invent REST/JSON endpoints only to feed Vue — use Inertia props.
+For API endpoints: accept Form Requests, return API Resources. Do not validate inline or return raw models/arrays for entities.

@@ -9,8 +9,8 @@
 | Table | plural, snake_case | `article_comments` | `articleComments` |
 | Pivot table | singular alphabetical | `article_user` | `user_article` |
 | Column | snake_case, no model name | `meta_title` | `article_meta_title` |
-| Request / Inertia / API field | snake_case | `service_id`, `date_from` | `serviceId`, `dateFrom` |
-| Inertia prop / API Resource key | snake_case | `created_at`, `service_id` | `createdAt`, `serviceId` |
+| Request / API field | snake_case | `service_id`, `date_from` | `serviceId`, `dateFrom` |
+| API Resource key | snake_case | `created_at`, `service_id` | `createdAt`, `serviceId` |
 | Foreign key | singular model + `_id` | `article_id` | `articles_id` |
 | Route | plural | `articles/1` | `article/1` |
 | Route name | snake_case with dots | `users.show_active` | `users.show-active` |

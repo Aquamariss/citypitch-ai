@@ -1,7 +1,5 @@
 # Blade & Views Best Practices
 
-> Prefer **Inertia + Vue** for application UI. Use these Blade rules for the Inertia root layout/shell, mail, and rare Blade-only surfaces — not for new feature pages.
-
 ## Use `$attributes->merge()` in Component Templates
 
 Hardcoding classes prevents consumers from adding their own. `merge()` combines class attributes cleanly.
@@ -26,7 +24,7 @@ If every controller rendering a sidebar must pass `$categories`, that's duplicat
 
 ## Use Blade Fragments for Partial Re-Renders (htmx/Turbo)
 
-Only when the project already uses htmx/Turbo — this boilerplate’s default UI is Inertia, not fragment-driven Blade.
+A single view can return either the full page or just a fragment, keeping routing clean.
 
 ```php
 return view('dashboard', compact('users'))

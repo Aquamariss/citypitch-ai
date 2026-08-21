@@ -40,9 +40,9 @@ Correct:
 'email' => ['required', 'email', Rule::unique('users')],
 ```
 
-## Use snake_case for Request and Response Field Names
+## Use snake_case for API Field Names
 
-Form Request keys, Inertia props, and API Resource output keys follow Laravel and database conventions: **snake_case**. Do not use camelCase for request or response fields.
+Form Request keys **and** API Resource output keys follow Laravel and database conventions: **snake_case**. Do not use camelCase for request or response fields.
 
 Incorrect:
 ```php
@@ -50,7 +50,7 @@ Incorrect:
 'serviceId' => ['required', 'integer'],
 'dateFrom' => ['nullable', 'date'],
 
-// Inertia props / API Resource
+// API Resource
 return [
     'serviceId' => $this->service_id,
     'createdAt' => $this->created_at,
@@ -63,7 +63,7 @@ Correct:
 'service_id' => ['required', 'integer'],
 'date_from' => ['nullable', 'date'],
 
-// Inertia props / API Resource
+// API Resource
 return [
     'service_id' => $this->service_id,
     'created_at' => $this->created_at,

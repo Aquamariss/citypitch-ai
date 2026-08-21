@@ -167,9 +167,9 @@ foreach (User::where('active', true)->cursor() as $user) {
 
 Use `cursor()` for read-only iteration. Use `chunk()` / `chunkById()` when modifying records.
 
-## No Queries in Views
+## No Queries in Blade Templates
 
-Never execute queries in Blade templates or Vue/Inertia page templates. Load data in the controller (or via shared Inertia props) and pass it down.
+Never execute queries in Blade templates. Pass data from controllers.
 
 Incorrect:
 ```blade
@@ -182,8 +182,11 @@ Correct:
 ```php
 // Controller
 $users = User::with('profile')->get();
+return view('users.index', compact('users'));
+```
 
-return Inertia::render('Users/Index', [
-    'users' => $users,
-]);
+```blade
+@foreach ($users as $user)
+    {{ $user->profile->name }}
+@endforeach
 ```

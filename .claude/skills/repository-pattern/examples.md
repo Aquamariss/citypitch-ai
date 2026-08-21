@@ -230,10 +230,10 @@ class UserService
 namespace App\Http\Controllers;
 
 use App\Http\Requests\IndexUsersRequest;
+use App\Http\Resources\UserResource;
 use App\Repositories\User\Contracts\UserRepositoryInterface;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Routing\Controller;
-use Inertia\Inertia;
-use Inertia\Response;
 
 class UserController extends Controller
 {
@@ -241,14 +241,14 @@ class UserController extends Controller
         private readonly UserRepositoryInterface $users,
     ) {}
 
-    public function index(IndexUsersRequest $request): Response
+    public function index(IndexUsersRequest $request): AnonymousResourceCollection
     {
-        return Inertia::render('Users/Index', [
-            'users' => $this->users->search(
+        return UserResource::collection(
+            $this->users->search(
                 filters: $request->validated(),
                 perPage: $request->integer('per_page', 15),
-            ),
-        ]);
+            )
+        );
     }
 }
 
