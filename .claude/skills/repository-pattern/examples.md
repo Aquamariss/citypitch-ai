@@ -2,7 +2,7 @@
 
 ## Use Repository Pattern for Data Access
 
-Abstract Eloquent queries behind repository interfaces instead of scattering query logic across controllers, services, and jobs. This makes your code testable (you can mock the repository in unit tests), keeps query logic in one place, and allows you to swap the data source without touching business logic.
+Abstract Eloquent queries behind repository interfaces instead of scattering query logic across controllers, services, and jobs. This keeps query logic in one place, makes services testable (mock the contract), and allows you to swap the data source without touching business logic.
 
 ### Incorrect
 
@@ -72,10 +72,10 @@ class UserController extends Controller
 ```php
 // Step 1: Define the interface
 
-// app/Domains/User/Repositories/UserRepositoryInterface.php
-namespace App\Domains\User\Repositories;
+// app/Repositories/User/Contracts/UserRepositoryInterface.php
+namespace App\Repositories\User\Contracts;
 
-use App\Domains\User\Models\User;
+use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -92,19 +92,22 @@ interface UserRepositoryInterface
     public function update(User $user, array $attributes): User;
 
     public function syncRoles(User $user, array $roleIds): void;
+
+    public function hasRole(User $user, string $roleSlug): bool;
 }
 
 // Step 2: Implement with Eloquent
 
-// app/Domains/User/Repositories/EloquentUserRepository.php
-namespace App\Domains\User\Repositories;
+// app/Repositories/User/UserRepository.php
+namespace App\Repositories\User;
 
-use App\Domains\User\Models\User;
+use App\Models\User;
+use App\Repositories\User\Contracts\UserRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 
-class EloquentUserRepository implements UserRepositoryInterface
+class UserRepository implements UserRepositoryInterface
 {
     public function findOrFail(int $id): User
     {
@@ -159,6 +162,11 @@ class EloquentUserRepository implements UserRepositoryInterface
         $user->roles()->sync($roleIds);
     }
 
+    public function hasRole(User $user, string $roleSlug): bool
+    {
+        return $user->roles()->where('slug', $roleSlug)->exists();
+    }
+
     /**
      * Reusable "active user" scope -- defined once, used everywhere.
      */
@@ -171,29 +179,30 @@ class EloquentUserRepository implements UserRepositoryInterface
 
 // Step 3: Bind in the Service Provider
 
-// app/Domains/User/UserServiceProvider.php
-namespace App\Domains\User;
+// app/Providers/AppServiceProvider.php
+namespace App\Providers;
 
-use App\Domains\User\Repositories\EloquentUserRepository;
-use App\Domains\User\Repositories\UserRepositoryInterface;
+use App\Repositories\User\Contracts\UserRepositoryInterface;
+use App\Repositories\User\UserRepository;
 use Illuminate\Support\ServiceProvider;
 
-class UserServiceProvider extends ServiceProvider
+class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->app->bind(UserRepositoryInterface::class, EloquentUserRepository::class);
+        $this->app->bind(UserRepositoryInterface::class, UserRepository::class);
     }
 }
 
 // Step 4: Use the interface in services and controllers
 
-// app/Domains/User/Services/UserService.php
-namespace App\Domains\User\Services;
+// app/Services/User/UserService.php
+namespace App\Services\User;
 
-use App\Domains\User\Models\User;
-use App\Domains\User\Repositories\UserRepositoryInterface;
-use App\Domains\User\Events\UserRegistered;
+use App\Events\UserRegistered;
+use App\Models\User;
+use App\Repositories\User\Contracts\UserRepositoryInterface;
+use Illuminate\Support\Facades\DB;
 
 class UserService
 {
@@ -203,25 +212,28 @@ class UserService
 
     public function register(array $data, array $roleIds = []): User
     {
-        $user = $this->users->create($data);
+        return DB::transaction(function () use ($data, $roleIds) {
+            $user = $this->users->create($data);
 
-        if ($roleIds) {
-            $this->users->syncRoles($user, $roleIds);
-        }
+            if ($roleIds !== []) {
+                $this->users->syncRoles($user, $roleIds);
+            }
 
-        UserRegistered::dispatch($user);
+            DB::afterCommit(fn () => UserRegistered::dispatch($user));
 
-        return $user;
+            return $user;
+        });
     }
 }
 
-// app/Domains/User/Controllers/UserController.php
-namespace App\Domains\User\Controllers;
+// app/Http/Controllers/UserController.php
+namespace App\Http\Controllers;
 
-use App\Domains\User\Repositories\UserRepositoryInterface;
-use App\Domains\User\Requests\IndexUsersRequest;
-use Illuminate\Http\JsonResponse;
+use App\Http\Requests\IndexUsersRequest;
+use App\Repositories\User\Contracts\UserRepositoryInterface;
 use Illuminate\Routing\Controller;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class UserController extends Controller
 {
@@ -229,14 +241,14 @@ class UserController extends Controller
         private readonly UserRepositoryInterface $users,
     ) {}
 
-    public function index(IndexUsersRequest $request): JsonResponse
+    public function index(IndexUsersRequest $request): Response
     {
-        $result = $this->users->search(
-            filters: $request->validated(),
-            perPage: $request->integer('per_page', 15),
-        );
-
-        return response()->json($result);
+        return Inertia::render('Users/Index', [
+            'users' => $this->users->search(
+                filters: $request->validated(),
+                perPage: $request->integer('per_page', 15),
+            ),
+        ]);
     }
 }
 

@@ -10,19 +10,25 @@ Abstract Eloquent queries behind repository interfaces. Keep all query logic in 
 ## Structure
 
 ```
-app/Domains/{Domain}/
-  Repositories/{Model}RepositoryInterface.php
-  Repositories/Eloquent{Model}Repository.php
+app/Repositories/{Domain}/
+  Contracts/{Domain}RepositoryInterface.php
+  {Domain}Repository.php
 ```
+
+Examples: `app/Repositories/User/Contracts/UserRepositoryInterface.php`, `app/Repositories/User/UserRepository.php`.
+
+Do not place repositories under `app/Domains/`.
 
 ## Conventions
 
-- Interface: `{Model}RepositoryInterface` — define the data contract
-- Implementation: `Eloquent{Model}Repository` — Eloquent-only, no business rules
-- Bind in the domain `ServiceProvider`: `Interface → Eloquent implementation`
+- Interface: `{Domain}RepositoryInterface` under `Contracts/` — define the data contract
+- Implementation: `{Domain}Repository` — Eloquent-only, no business rules
+- Bind in a service provider: `Interface → Implementation`
 - Inject the **interface**, never the concrete class
+- One primary repository per domain; add focused collaborators under the same folder when the domain grows
+- Accept primitives, arrays, or models — never `Request` objects
 - Reuse query scopes as private methods (e.g. `scopeActive`) — define once, use everywhere
-- Return models, collections, or paginators — not API resources
+- Return models, collections, or paginators — not API resources, Inertia responses, or other HTTP responses
 
 ## Does / Does Not
 

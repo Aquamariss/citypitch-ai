@@ -44,7 +44,8 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 ## Documentation Files
 
-- You must only create documentation files if explicitly requested by the user.
+- Project documentation is managed with **Laradoc**. Do not invent a parallel `/docs` workflow.
+- You must only create other documentation files if explicitly requested by the user.
 
 ## Replies
 
@@ -86,7 +87,7 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 - Execute PHP in app context for debugging and testing code. Do not create models without user approval, prefer tests with factories instead. Prefer existing Artisan commands over custom tinker code.
 - Always use single quotes to prevent shell expansion: `vendor/bin/sail artisan tinker --execute 'Your::code();'`
-  - Double quotes for PHP strings inside: `vendor/bin/sail artisan tinker --execute 'User::where("active", true)->count();'`
+    - Double quotes for PHP strings inside: `vendor/bin/sail artisan tinker --execute 'User::where("active", true)->count();'`
 
 === php rules ===
 
@@ -131,9 +132,10 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 - When creating new models, create useful factories and seeders for them too. Ask the user if they need any other things, using `vendor/bin/sail artisan make:model --help` to check the available options.
 
-## APIs & Eloquent Resources
+## UI (Inertia) & APIs
 
-- For APIs, default to using Eloquent API Resources and API versioning unless existing API routes do not, then you should follow existing application convention.
+- Default application UI is **Inertia + Vue**. Controllers return `Inertia::render(...)` or redirects; do not add REST/JSON endpoints only to feed the frontend.
+- For explicit HTTP APIs, use Eloquent API Resources (`Resource::make()` / `Resource::collection()`) and follow existing API versioning conventions when present.
 
 ## URL Generation
 
@@ -161,7 +163,7 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 # PHPUnit
 
 - This application uses PHPUnit for testing. All tests must be written as PHPUnit classes. Use `vendor/bin/sail artisan make:test --phpunit {name}` to create a new test.
-- If you see a test using "Pest", convert it to PHPUnit.
+- **Pest is forbidden** — do not install it, do not write Pest tests, do not suggest migrating to Pest.
 - Every time a test has been updated, run that singular test.
 - When the tests relating to your feature are passing, ask the user if they would like to also run the entire test suite to make sure everything is still passing.
 - Tests should cover all happy paths, failure paths, and edge cases.

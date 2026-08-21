@@ -1,20 +1,25 @@
 # Architecture Best Practices
 
-## Single-Purpose Action Classes
+## Domain Service Classes
 
-Extract discrete business operations into invokable Action classes.
+Put business operations in Service classes under `app/Services/{Domain}/`. Do not introduce `*Action` classes for domain workflows unless an existing module already uses that pattern.
 
 ```php
-class CreateOrderAction
+class OrderService
 {
-    public function __construct(private InventoryService $inventory) {}
+    public function __construct(
+        private OrderRepositoryInterface $orders,
+        private InventoryService $inventory,
+    ) {}
 
-    public function handle(array $data): Order
+    public function create(array $data): Order
     {
-        $order = Order::create($data);
-        $this->inventory->reserve($order);
+        return DB::transaction(function () use ($data) {
+            $order = $this->orders->create($data);
+            $this->inventory->reserve($order);
 
-        return $order;
+            return $order;
+        });
     }
 }
 ```
@@ -27,11 +32,12 @@ Incorrect:
 ```php
 class OrderController extends Controller
 {
-    public function store(StoreOrderRequest $request)
+    public function store(StoreOrderRequest $request): RedirectResponse
     {
         $service = app(OrderService::class);
+        $service->create($request->validated());
 
-        return $service->create($request->validated());
+        return redirect()->route('orders.index');
     }
 }
 ```
@@ -42,12 +48,16 @@ class OrderController extends Controller
 {
     public function __construct(private OrderService $service) {}
 
-    public function store(StoreOrderRequest $request)
+    public function store(StoreOrderRequest $request): RedirectResponse
     {
-        return $this->service->create($request->validated());
+        $this->service->create($request->validated());
+
+        return redirect()->route('orders.index');
     }
 }
 ```
+
+For explicit HTTP API endpoints (not Inertia UI), return `OrderResource::make(...)` from the controller the same way — still via constructor-injected services.
 
 ## Code to Interfaces
 

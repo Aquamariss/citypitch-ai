@@ -46,14 +46,14 @@ Cross-cutting changes often need more than one rule file.
 | Mailables and mail assertions | [`rules/mail.md`](rules/mail.md) |
 | Scheduled tasks and overlap protection | [`rules/scheduling.md`](rules/scheduling.md) |
 | Collections, lazy iteration, bulk operations | [`rules/collections.md`](rules/collections.md) |
-| Blade components, attributes, composers | [`rules/blade-views.md`](rules/blade-views.md) |
+| Blade layout/shell (not primary UI) | [`rules/blade-views.md`](rules/blade-views.md) |
 | Environment values and application configuration | [`rules/config.md`](rules/config.md) |
-| Pest/PHPUnit patterns, factories, fakes | [`rules/testing.md`](rules/testing.md) |
+| PHPUnit patterns, factories, fakes | [`rules/testing.md`](rules/testing.md) |
 | Naming, helpers, file boundaries, PHP style | [`rules/style.md`](rules/style.md) |
-| Actions, services, dependencies, application structure | [`rules/architecture.md`](rules/architecture.md) |
+| Services, dependencies, application structure | [`rules/architecture.md`](rules/architecture.md) |
 
 ## Decision Rules
 
 - Prefer framework features and existing application abstractions over new helpers or dependencies.
 - Avoid speculative abstractions. Extract code when it creates a clear domain boundary, removes meaningful duplication, or makes behavior independently testable.
-- Keep database access out of Blade views and prevent hidden N+1 queries across controllers, resources, jobs, and serialization.
+- Keep database access out of Blade/Inertia views and prevent hidden N+1 queries across controllers, resources, jobs, and serialization.

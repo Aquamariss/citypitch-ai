@@ -23,16 +23,51 @@ public function store(StorePostRequest $request)
 }
 ```
 
-## Array vs. String Notation for Rules
+## Always Use Array Notation for Rules
 
-Array syntax is more readable and composes cleanly with `Rule::` objects. Prefer it in new code, but check existing Form Requests first and match whatever notation the project already uses.
+Always write validation rules as arrays. Do not use pipe-delimited strings.
 
+Incorrect:
 ```php
-// Preferred for new code
-'email' => ['required', 'email', Rule::unique('users')],
+'service_id' => 'required|integer',
+'active' => 'nullable|integer|in:0,1',
+```
 
-// Follow existing convention if the project uses string notation
-'email' => 'required|email|unique:users',
+Correct:
+```php
+'service_id' => ['required', 'integer'],
+'active' => ['nullable', 'integer', 'in:0,1'],
+'email' => ['required', 'email', Rule::unique('users')],
+```
+
+## Use snake_case for Request and Response Field Names
+
+Form Request keys, Inertia props, and API Resource output keys follow Laravel and database conventions: **snake_case**. Do not use camelCase for request or response fields.
+
+Incorrect:
+```php
+// Form Request
+'serviceId' => ['required', 'integer'],
+'dateFrom' => ['nullable', 'date'],
+
+// Inertia props / API Resource
+return [
+    'serviceId' => $this->service_id,
+    'createdAt' => $this->created_at,
+];
+```
+
+Correct:
+```php
+// Form Request
+'service_id' => ['required', 'integer'],
+'date_from' => ['nullable', 'date'],
+
+// Inertia props / API Resource
+return [
+    'service_id' => $this->service_id,
+    'created_at' => $this->created_at,
+];
 ```
 
 ## Always Use `validated()`

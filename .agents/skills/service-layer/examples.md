@@ -7,11 +7,11 @@ Keep controllers thin. Services own business rules, orchestration, transactions,
 ### Incorrect
 
 ```php
-// app/Domains/User/Controllers/UserController.php
-namespace App\Domains\User\Controllers;
+// app/Http/Controllers/UserController.php
+namespace App\Http\Controllers;
 
-use App\Domains\User\Models\User;
-use App\Domains\User\Events\UserRegistered;
+use App\Events\UserRegistered;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -49,17 +49,18 @@ class UserController extends Controller
 // - Cannot reuse registration logic from jobs, commands, or tests
 // - Controller mixes HTTP, persistence, and domain events
 // - Hard to unit-test without HTTP layer
+// - Eloquent queries and Model:: calls live outside repositories
 ```
 
 ### Correct
 
 ```php
-// app/Domains/User/Services/UserService.php
-namespace App\Domains\User\Services;
+// app/Services/User/UserService.php
+namespace App\Services\User;
 
-use App\Domains\User\Events\UserRegistered;
-use App\Domains\User\Models\User;
-use App\Domains\User\Repositories\UserRepositoryInterface;
+use App\Events\UserRegistered;
+use App\Models\User;
+use App\Repositories\User\Contracts\UserRepositoryInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
@@ -78,33 +79,31 @@ class UserService
                 'password' => Hash::make($data['password']),
             ]);
 
-            if ($roleIds) {
+            if ($roleIds !== []) {
                 $this->users->syncRoles($user, $roleIds);
             }
 
-            if ($this->requiresApproval($user)) {
+            if ($this->users->hasRole($user, 'admin')) {
                 $this->users->update($user, ['is_active' => false]);
             }
 
-            UserRegistered::dispatch($user);
+            // Fire only after a successful commit (safe with nested transactions)
+            DB::afterCommit(fn () => UserRegistered::dispatch($user));
 
             return $user;
         });
     }
-
-    private function requiresApproval(User $user): bool
-    {
-        return $user->roles()->where('slug', 'admin')->exists();
-    }
 }
 
-// app/Domains/User/Controllers/UserController.php
-namespace App\Domains\User\Controllers;
+// app/Http/Controllers/UserController.php
+namespace App\Http\Controllers;
 
-use App\Domains\User\Requests\StoreUserRequest;
-use App\Domains\User\Services\UserService;
-use Illuminate\Http\JsonResponse;
+use App\Http\Requests\StoreUserRequest;
+use App\Services\User\UserService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Routing\Controller;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class UserController extends Controller
 {
@@ -112,14 +111,19 @@ class UserController extends Controller
         private readonly UserService $userService,
     ) {}
 
-    public function store(StoreUserRequest $request): JsonResponse
+    public function create(): Response
     {
-        $user = $this->userService->register(
+        return Inertia::render('Users/Create');
+    }
+
+    public function store(StoreUserRequest $request): RedirectResponse
+    {
+        $this->userService->register(
             data: $request->safe()->only(['name', 'email', 'password']),
             roleIds: $request->input('role_ids', []),
         );
 
-        return response()->json($user->load('roles'), 201);
+        return redirect()->route('users.index');
     }
 }
 
@@ -128,20 +132,42 @@ class UserController extends Controller
 // $mock = $this->mock(UserRepositoryInterface::class);
 // $mock->shouldReceive('create')->once()->andReturn($user);
 // $mock->shouldReceive('syncRoles')->once();
+// $mock->shouldReceive('hasRole')->once()->with($user, 'admin')->andReturn(false);
 //
 // $service = new UserService($mock);
 // $result = $service->register([...], [1, 2]);
 ```
 
-### Controller → Repository (read-only exception)
+### Events after commit
 
-Simple listing/filtering may call the repository directly — no business logic involved:
+Dispatch side effects only after the write succeeds:
 
 ```php
-public function index(IndexUsersRequest $request): JsonResponse
+return DB::transaction(function () use ($data) {
+    $order = $this->orders->create($data);
+
+    DB::afterCommit(fn () => OrderPlaced::dispatch($order));
+
+    return $order;
+});
+```
+
+Avoid dispatching events mid-transaction unless the event implements `ShouldDispatchAfterCommit`. Listeners must not observe uncommitted state.
+
+### Controller → Repository (read-only exception)
+
+Simple listing/filtering may call the repository directly — no business logic involved. Prefer Inertia props:
+
+```php
+public function index(IndexUsersRequest $request): Response
 {
-    return response()->json(
-        $this->users->search($request->validated(), $request->integer('per_page', 15))
-    );
+    return Inertia::render('Users/Index', [
+        'users' => $this->users->search(
+            $request->validated(),
+            $request->integer('per_page', 15),
+        ),
+    ]);
 }
 ```
+
+Use `Resource::make()` / `Resource::collection()` only for explicit HTTP API endpoints — not for Inertia pages.
