@@ -2,9 +2,9 @@
 
 namespace Database\Factories;
 
-use App\Domains\Pitching\Enums\MediaType;
-use App\Domains\Pitching\Enums\PitchStatus;
-use App\Domains\Pitching\Enums\PitchStep;
+use App\Enums\MediaType;
+use App\Enums\PitchStatus;
+use App\Enums\PitchStep;
 use App\Models\Pitch;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;

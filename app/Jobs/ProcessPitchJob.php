@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Domains\Pitching\Services\PitchingService;
+use App\Services\Pitching\PitchingService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -19,13 +19,12 @@ class ProcessPitchJob implements ShouldQueue
         public string $pitchId,
         public string $videoPath,
         public int $durationSeconds,
-        public int $userId,
     ) {}
 
     public function handle(PitchingService $pitchingService): void
     {
         try {
-            $pitchingService->process($this->pitchId, $this->videoPath, $this->durationSeconds, $this->userId);
+            $pitchingService->process($this->pitchId, $this->videoPath, $this->durationSeconds);
         } catch (\Throwable $e) {
             $pitchingService->failProcessing($this->pitchId, $e->getMessage());
 

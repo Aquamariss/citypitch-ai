@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests;
 
-use App\Domains\Pitching\Support\PitchDraftBlocks;
+use App\Services\Pitching\PitchDraftService;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ImportPitchWriterDraftRequest extends FormRequest
@@ -20,7 +20,7 @@ class ImportPitchWriterDraftRequest extends FormRequest
         $maxLength = (int) config('pitching.writer_max_block_length', 1500);
         $blockRules = [];
 
-        foreach (PitchDraftBlocks::KEYS as $key) {
+        foreach (PitchDraftService::KEYS as $key) {
             $blockRules["blocks.{$key}"] = ['nullable', 'string', "max:{$maxLength}"];
         }
 

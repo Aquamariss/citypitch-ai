@@ -97,7 +97,7 @@ class OtpAuthenticationTest extends TestCase
     public function test_local_environment_logs_in_without_otp(): void
     {
         Mail::fake();
-        $this->app['env'] = 'local';
+        config(['app.env' => 'local']);
         $this->withoutMiddleware([
             PreventRequestForgery::class,
         ]);

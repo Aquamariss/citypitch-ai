@@ -2,10 +2,10 @@
 
 namespace Tests\Feature\Pitch;
 
-use App\Domains\Pitching\Services\PitchWriterSessionService;
-use App\Domains\Pitching\Support\PitchDraftBlocks;
 use App\Models\PitchWriterSession;
 use App\Models\User;
+use App\Services\Pitching\PitchDraftService;
+use App\Services\Pitching\PitchWriterSessionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -18,7 +18,7 @@ class PitchWriterAgentDraftTest extends TestCase
         $user = User::factory()->create();
         $session = PitchWriterSession::query()->create([
             'user_id' => $user->id,
-            'blocks' => PitchDraftBlocks::empty(),
+            'blocks' => app(PitchDraftService::class)->empty(),
         ]);
 
         $service = app(PitchWriterSessionService::class);

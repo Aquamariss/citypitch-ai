@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
-use App\Domains\Pitching\Enums\MediaType;
-use App\Domains\Pitching\Enums\PitchStatus;
-use App\Domains\Pitching\Enums\PitchStep;
+use App\Enums\MediaType;
+use App\Enums\PitchStatus;
+use App\Enums\PitchStep;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;

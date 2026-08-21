@@ -1,8 +1,8 @@
 <?php
 
-use App\Domains\Auth\AuthServiceProvider;
-use App\Domains\Pitching\PitchingServiceProvider;
 use App\Providers\AppServiceProvider;
+use App\Providers\AuthServiceProvider;
+use App\Providers\PitchingServiceProvider;
 
 return [
     AppServiceProvider::class,

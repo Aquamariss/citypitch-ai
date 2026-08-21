@@ -30,8 +30,9 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/pitch', [PitchController::class, 'index'])->name('pitch.index');
     Route::post('/pitch/upload', [PitchController::class, 'upload'])->name('pitch.upload');
-    Route::get('/pitch/{pitchId}/status', [PitchController::class, 'status'])->name('pitch.status');
-    Route::get('/pitch/{pitchId}/result', [PitchController::class, 'result'])->name('pitch.result');
-    Route::get('/pitch/{pitchId}/download', [PitchController::class, 'download'])->name('pitch.download');
-    Route::get('/pitch/{pitchId}/subtitles.vtt', [PitchController::class, 'subtitles'])->name('pitch.subtitles');
+    Route::get('/pitch/{pitch}/status', [PitchController::class, 'status'])->name('pitch.status');
+    Route::get('/pitch/{pitch}/result', [PitchController::class, 'result'])->name('pitch.result');
+    Route::get('/pitch/{pitch}/download', [PitchController::class, 'download'])->name('pitch.download');
+    Route::get('/pitch/{pitch}/media', [PitchController::class, 'media'])->name('pitch.media');
+    Route::get('/pitch/{pitch}/subtitles.vtt', [PitchController::class, 'subtitles'])->name('pitch.subtitles');
 });

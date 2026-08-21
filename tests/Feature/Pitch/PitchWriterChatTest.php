@@ -2,8 +2,9 @@
 
 namespace Tests\Feature\Pitch;
 
-use App\Domains\Pitching\Services\PitchWriterService;
 use App\Models\User;
+use App\Services\Pitching\PitchWriterQuotaService;
+use App\Services\Pitching\PitchWriterService;
 use Generator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -74,11 +75,13 @@ class PitchWriterChatTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->mock(PitchWriterService::class, function ($mock) use ($user): void {
+        $this->mock(PitchWriterQuotaService::class, function ($mock) use ($user): void {
             $mock->shouldReceive('assertDailyLimitNotExceeded')
                 ->once()
                 ->with($user->id);
+        });
 
+        $this->mock(PitchWriterService::class, function ($mock) use ($user): void {
             $mock->shouldReceive('streamTurn')
                 ->once()
                 ->withArgs(fn (User $passedUser, string $content) => $passedUser->is($user)
@@ -119,11 +122,13 @@ class PitchWriterChatTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->mock(PitchWriterService::class, function ($mock) use ($user): void {
+        $this->mock(PitchWriterQuotaService::class, function ($mock) use ($user): void {
             $mock->shouldReceive('assertDailyLimitNotExceeded')
                 ->times(10)
                 ->with($user->id);
+        });
 
+        $this->mock(PitchWriterService::class, function ($mock): void {
             $mock->shouldReceive('streamTurn')
                 ->times(10)
                 ->andReturnUsing(fn () => $this->streamChunks([
@@ -150,8 +155,11 @@ class PitchWriterChatTest extends TestCase
 
         $this->actingAs($user)->get(route('pitch-writer.index'))->assertOk();
 
-        $this->mock(PitchWriterService::class, function ($mock) use ($user): void {
+        $this->mock(PitchWriterQuotaService::class, function ($mock) use ($user): void {
             $mock->shouldReceive('assertDailyLimitNotExceeded')->once()->with($user->id);
+        });
+
+        $this->mock(PitchWriterService::class, function ($mock): void {
             $mock->shouldReceive('streamTurn')
                 ->once()
                 ->andReturn($this->streamChunks([

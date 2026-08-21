@@ -2,10 +2,10 @@
 
 namespace Tests\Feature\Pitch;
 
-use App\Domains\Pitching\Support\PitchDraftBlocks;
 use App\Models\PitchWriterMessage;
 use App\Models\PitchWriterSession;
 use App\Models\User;
+use App\Services\Pitching\PitchDraftService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -19,7 +19,7 @@ class PitchWriterSessionTest extends TestCase
 
         $response = $this->actingAs($user)->patchJson(route('pitch-writer.draft.update'), [
             'blocks' => [
-                ...PitchDraftBlocks::empty(),
+                ...app(PitchDraftService::class)->empty(),
                 'problem' => 'Фаундеры готовят питч вслепую.',
             ],
         ]);
@@ -42,7 +42,7 @@ class PitchWriterSessionTest extends TestCase
         $this->actingAs($user)
             ->patchJson(route('pitch-writer.draft.update'), [
                 'blocks' => [
-                    ...PitchDraftBlocks::empty(),
+                    ...app(PitchDraftService::class)->empty(),
                     'problem' => str_repeat('a', 11),
                 ],
             ])
@@ -56,13 +56,13 @@ class PitchWriterSessionTest extends TestCase
 
         $session = PitchWriterSession::query()->create([
             'user_id' => $user->id,
-            'blocks' => PitchDraftBlocks::empty(),
+            'blocks' => app(PitchDraftService::class)->empty(),
         ]);
 
         $this->actingAs($user)
             ->postJson(route('pitch-writer.draft.import'), [
                 'blocks' => [
-                    ...PitchDraftBlocks::empty(),
+                    ...app(PitchDraftService::class)->empty(),
                     'solution' => 'Pitch AI закрывает цикл подготовки.',
                 ],
             ])
@@ -71,7 +71,7 @@ class PitchWriterSessionTest extends TestCase
 
         $session->update([
             'blocks' => [
-                ...PitchDraftBlocks::empty(),
+                ...app(PitchDraftService::class)->empty(),
                 'problem' => 'Уже есть текст',
             ],
         ]);
@@ -79,7 +79,7 @@ class PitchWriterSessionTest extends TestCase
         $this->actingAs($user)
             ->postJson(route('pitch-writer.draft.import'), [
                 'blocks' => [
-                    ...PitchDraftBlocks::empty(),
+                    ...app(PitchDraftService::class)->empty(),
                     'solution' => 'Не должно примениться',
                 ],
             ])
@@ -94,14 +94,14 @@ class PitchWriterSessionTest extends TestCase
 
         $this->actingAs($user)->patchJson(route('pitch-writer.draft.update'), [
             'blocks' => [
-                ...PitchDraftBlocks::empty(),
+                ...app(PitchDraftService::class)->empty(),
                 'problem' => 'Первая версия',
             ],
         ])->assertOk();
 
         $this->actingAs($user)->patchJson(route('pitch-writer.draft.update'), [
             'blocks' => [
-                ...PitchDraftBlocks::empty(),
+                ...app(PitchDraftService::class)->empty(),
                 'problem' => 'Вторая версия',
             ],
         ])->assertOk();
@@ -119,7 +119,7 @@ class PitchWriterSessionTest extends TestCase
         $session = PitchWriterSession::query()->create([
             'user_id' => $user->id,
             'blocks' => [
-                ...PitchDraftBlocks::empty(),
+                ...app(PitchDraftService::class)->empty(),
                 'problem' => 'Текст',
             ],
         ]);
@@ -150,7 +150,7 @@ class PitchWriterSessionTest extends TestCase
         PitchWriterSession::query()->create([
             'user_id' => $owner->id,
             'blocks' => [
-                ...PitchDraftBlocks::empty(),
+                ...app(PitchDraftService::class)->empty(),
                 'problem' => 'Секретно',
             ],
         ]);
@@ -158,7 +158,7 @@ class PitchWriterSessionTest extends TestCase
         $this->actingAs($intruder)
             ->patchJson(route('pitch-writer.draft.update'), [
                 'blocks' => [
-                    ...PitchDraftBlocks::empty(),
+                    ...app(PitchDraftService::class)->empty(),
                     'problem' => 'Чужой текст',
                 ],
             ])

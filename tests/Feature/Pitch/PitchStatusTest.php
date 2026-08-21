@@ -19,7 +19,7 @@ class PitchStatusTest extends TestCase
         ]);
 
         $response = $this->actingAs($user)
-            ->getJson(route('pitch.status', ['pitchId' => $pitch->id]));
+            ->getJson(route('pitch.status', ['pitch' => $pitch->id]));
 
         $response->assertOk()
             ->assertJson([
@@ -36,9 +36,9 @@ class PitchStatusTest extends TestCase
         ]);
 
         $response = $this->actingAs($user)
-            ->get(route('pitch.status', ['pitchId' => $pitch->id]));
+            ->get(route('pitch.status', ['pitch' => $pitch->id]));
 
-        $response->assertRedirect(route('pitch.result', ['pitchId' => $pitch->id]));
+        $response->assertRedirect(route('pitch.result', ['pitch' => $pitch->id]));
     }
 
     public function test_result_page_is_accessible_for_completed_pitch(): void
@@ -49,7 +49,7 @@ class PitchStatusTest extends TestCase
         ]);
 
         $response = $this->actingAs($user)
-            ->get(route('pitch.result', ['pitchId' => $pitch->id]));
+            ->get(route('pitch.result', ['pitch' => $pitch->id]));
 
         $response->assertOk();
     }
@@ -63,7 +63,7 @@ class PitchStatusTest extends TestCase
         ]);
 
         $response = $this->actingAs($user)
-            ->get(route('pitch.result', ['pitchId' => $pitch->id]));
+            ->get(route('pitch.result', ['pitch' => $pitch->id]));
 
         $response->assertRedirect(route('pitch.index'));
         $response->assertSessionHasErrors('video');

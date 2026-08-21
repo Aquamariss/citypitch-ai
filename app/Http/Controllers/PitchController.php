@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Domains\Pitching\Enums\PitchStatus;
-use App\Domains\Pitching\Services\PitchingService;
-use App\Domains\Pitching\Services\PitchWriterSessionService;
+use App\Enums\PitchStatus;
 use App\Http\Requests\UploadPitchRequest;
+use App\Models\Pitch;
+use App\Services\Pitching\PitchingService;
+use App\Services\Pitching\PitchWriterSessionService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -42,14 +43,12 @@ class PitchController extends Controller
             $request->validated('media_type'),
         );
 
-        return redirect()->route('pitch.status', ['pitchId' => $pitchId]);
+        return redirect()->route('pitch.status', ['pitch' => $pitchId]);
     }
 
-    public function status(Request $request, string $pitchId)
+    public function status(Request $request, Pitch $pitch)
     {
-        $pitch = $this->pitchingService->getPitchForUser($pitchId, $request->user());
-
-        if (! $pitch) {
+        if (! $request->user()->can('view', $pitch)) {
             return redirect()->route('pitch.index')->withErrors(['video' => 'Питч не найден или удален']);
         }
 
@@ -62,11 +61,11 @@ class PitchController extends Controller
         }
 
         if ($pitch->status === PitchStatus::Completed) {
-            return redirect()->route('pitch.result', ['pitchId' => $pitchId]);
+            return redirect()->route('pitch.result', ['pitch' => $pitch->id]);
         }
 
         return Inertia::render('Pitch/Status', [
-            'pitchId' => $pitchId,
+            'pitchId' => $pitch->id,
             'initialStatus' => [
                 'status' => $pitch->status->value,
                 'step' => $pitch->step?->value,
@@ -75,11 +74,13 @@ class PitchController extends Controller
         ]);
     }
 
-    public function result(Request $request, string $pitchId)
+    public function result(Request $request, Pitch $pitch)
     {
-        $pitch = $this->pitchingService->getPitchForUser($pitchId, $request->user());
+        if (! $request->user()->can('view', $pitch)) {
+            return redirect()->route('pitch.index')->withErrors(['video' => 'Питч не найден или удален']);
+        }
 
-        if (! $pitch || $pitch->status !== PitchStatus::Completed) {
+        if ($pitch->status !== PitchStatus::Completed) {
             return redirect()->route('pitch.index')->withErrors(['video' => 'Питч не найден или удален']);
         }
 
@@ -90,11 +91,9 @@ class PitchController extends Controller
         ]);
     }
 
-    public function download(Request $request, string $pitchId)
+    public function download(Request $request, Pitch $pitch)
     {
-        $pitch = $this->pitchingService->getPitchForUser($pitchId, $request->user());
-
-        if (! $pitch) {
+        if (! $request->user()->can('view', $pitch)) {
             abort(404);
         }
 
@@ -109,16 +108,40 @@ class PitchController extends Controller
         return response()->download($path, "my-pitch.{$extension}");
     }
 
-    public function subtitles(Request $request, string $pitchId)
+    public function subtitles(Request $request, Pitch $pitch)
     {
-        $pitch = $this->pitchingService->getPitchForUser($pitchId, $request->user());
-
-        if (! $pitch) {
+        if (! $request->user()->can('view', $pitch)) {
             abort(404);
         }
 
         return response($this->pitchingService->buildWebVtt($pitch), 200, [
             'Content-Type' => 'text/vtt',
+        ]);
+    }
+
+    public function media(Request $request, Pitch $pitch)
+    {
+        if (! $request->user()->can('view', $pitch)) {
+            abort(404);
+        }
+
+        $path = $pitch->video_path;
+
+        if (! $path || ! file_exists($path)) {
+            abort(404);
+        }
+
+        $mime = match (strtolower(pathinfo($path, PATHINFO_EXTENSION))) {
+            'ogg' => 'audio/ogg',
+            'mp3' => 'audio/mpeg',
+            'wav' => 'audio/wav',
+            'm4a' => 'audio/mp4',
+            default => 'video/mp4',
+        };
+
+        return response()->file($path, [
+            'Content-Type' => $mime,
+            'Accept-Ranges' => 'bytes',
         ]);
     }
 }

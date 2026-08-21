@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers\Auth;
 
-use App\Domains\Auth\Services\OtpService;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\SendOtpRequest;
 use App\Http\Requests\VerifyOtpRequest;
+use App\Services\Auth\OtpService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 class OtpController extends Controller
@@ -18,7 +17,7 @@ class OtpController extends Controller
 
     public function showLogin(Request $request)
     {
-        if (Auth::check()) {
+        if ($request->user() !== null) {
             return redirect()->route('pitch.index');
         }
 
@@ -32,7 +31,9 @@ class OtpController extends Controller
         $email = $request->validated('email');
 
         if (! $this->otpService->isOtpRequired()) {
-            $this->otpService->authenticateSession($request, $email);
+            $user = $this->otpService->authenticateUser($email);
+            $this->otpService->login($user);
+            $request->session()->regenerate();
 
             return redirect()->intended(route('pitch.index', absolute: false));
         }
@@ -53,14 +54,18 @@ class OtpController extends Controller
             ]);
         }
 
-        $this->otpService->authenticateSession($request, $email);
+        $user = $this->otpService->authenticateUser($email);
+        $this->otpService->login($user);
+        $request->session()->regenerate();
 
         return redirect()->intended(route('pitch.index', absolute: false));
     }
 
     public function logout(Request $request)
     {
-        $this->otpService->logout($request);
+        $this->otpService->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
 
         return redirect()->route('login');
     }

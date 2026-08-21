@@ -2,13 +2,17 @@
 
 namespace App\Http\Middleware;
 
-use App\Domains\Pitching\Repositories\PitchRepositoryInterface;
+use App\Repositories\Pitching\Contracts\PitchRepositoryInterface;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
 {
     protected $rootView = 'app';
+
+    public function __construct(
+        private readonly PitchRepositoryInterface $pitchRepository,
+    ) {}
 
     public function version(Request $request): ?string
     {
@@ -25,7 +29,7 @@ class HandleInertiaRequests extends Middleware
             'status' => fn () => $request->session()->get('status'),
             'auth_email' => fn () => $request->user()?->email,
             'attempts_used' => fn () => $request->user()
-                ? app(PitchRepositoryInterface::class)->countTodayAttempts($request->user()->id)
+                ? $this->pitchRepository->countTodayAttempts($request->user()->id)
                 : 0,
             'max_attempts' => fn () => config('pitching.max_daily_attempts', 5),
         ];
