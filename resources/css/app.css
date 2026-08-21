@@ -4,7 +4,8 @@
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 @source '../views/**/*.blade.php';
-@source '../js/**/*.jsx';
+@source '../js/**/*.vue';
+@source '../js/**/*.ts';
 
 @import './pitch-ai.css';
 
