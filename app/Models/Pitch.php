@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\MediaType;
 use App\Enums\PitchStatus;
 use App\Enums\PitchStep;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -21,7 +20,6 @@ class Pitch extends Model
         return [
             'status' => PitchStatus::class,
             'step' => PitchStep::class,
-            'media_type' => MediaType::class,
             'transcription' => 'array',
             'result' => 'array',
         ];

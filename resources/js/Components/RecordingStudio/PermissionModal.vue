@@ -5,7 +5,6 @@ import { ShieldAlert, X } from 'lucide-vue-next';
 const props = defineProps<{
     open: boolean;
     error: string | null;
-    isVideo: boolean;
     onClose: () => void;
 }>();
 
@@ -38,8 +37,8 @@ watchEffect((onCleanup) => {
             <div class="perm-icon" aria-hidden="true">
                 <ShieldAlert :stroke-width="1.5" />
             </div>
-            <h3 id="perm-title">{{ isVideo ? 'Включить видео не удалось' : 'Включить звук не удалось' }}</h3>
-            <p class="perm-copy">Разрешите доступ к {{ isVideo ? 'камере' : 'микрофону' }} в настройках сайта.</p>
+            <h3 id="perm-title">Включить микрофон не удалось</h3>
+            <p class="perm-copy">Разрешите доступ к микрофону в настройках сайта.</p>
             <p v-if="error" class="perm-error">{{ error }}</p>
             <p class="perm-hint">
                 Нажмите на иконку замка слева в адресной строке и разрешите доступ.

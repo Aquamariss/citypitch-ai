@@ -1,69 +1,38 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue';
-import {
-    ChevronRight,
-    Info,
-    Maximize2,
-    Mic,
-    Minimize2,
-    PanelRightClose,
-    Pause,
-    Play,
-    Video,
-} from 'lucide-vue-next';
+import { usePage } from '@inertiajs/vue3';
+import { Mic, NotebookPen, Pause, Play } from 'lucide-vue-next';
 import PitchRecorder from '@/Components/PitchRecorder/index.vue';
 import ProcessingOverlay from '@/Components/PitchRecorder/ProcessingOverlay.vue';
 import ErrorBanner from '@/Components/PitchRecorder/ErrorBanner.vue';
 import PitchDraftPanel from '@/Components/PitchDraftPanel.vue';
+import PitchRulesContent from '@/Components/PitchRulesContent.vue';
+import CitySilhouette from '@/Components/CitySilhouette.vue';
 import { usePitchDraft } from '@/composables/usePitchDraft';
 import { useRecordingCountdown } from '@/composables/useRecordingCountdown';
 import { useRecordingHotkeys } from '@/composables/useRecordingHotkeys';
-import { useResizableSidePanel } from '@/composables/useResizableSidePanel';
-import CameraMirror from './CameraMirror.vue';
+import { formatClock, useMethodology } from '@/lib/pitchMethodology';
 import PermissionModal from './PermissionModal.vue';
-import PitchRulesDrawer from './PitchRulesDrawer.vue';
 import StudioReview from './StudioReview.vue';
 import VoiceMemoWaveform from './VoiceMemoWaveform.vue';
 
-function formatClock(seconds = 0): string {
-    const safe = Math.max(0, Math.floor(seconds));
-    const m = Math.floor(safe / 60).toString().padStart(2, '0');
-    const s = (safe % 60).toString().padStart(2, '0');
-
-    return `${m}:${s}`;
-}
-
 const props = withDefaults(defineProps<{
-    defaultDuration?: number;
     draftSession?: any;
 }>(), {
-    defaultDuration: 180,
     draftSession: null,
 });
 
-const mode = ref<'video' | 'audio'>('video');
-const rulesOpen = ref(false);
+const page = usePage<{ max_attempts: number; attempts_used: number }>();
+const methodology = useMethodology();
+
 const isRecording = ref(false);
 const studioState = ref<any>(null);
-const isFullscreen = ref(false);
+const writerOpen = ref(false);
 
 const pitchDraft = usePitchDraft({
     initialSession: props.draftSession,
     enableLocalImport: true,
 });
-
-const stageRef = ref<HTMLElement | null>(null);
-
-const draftPanel = useResizableSidePanel({
-    widthKey: 'pitch-ai-draft-width',
-    visibleKey: 'pitch-ai-draft-visible',
-    defaultWidth: 420,
-    minWidth: 280,
-    maxRatio: 0.4,
-    containerRef: stageRef,
-});
-
-const isVideoMode = computed(() => mode.value === 'video');
 
 const beginRecording = () => {
     studioState.value?.onStart?.();
@@ -79,7 +48,6 @@ const requestStart = () => {
         return;
     }
 
-    rulesOpen.value = false;
     countdown.start();
 };
 
@@ -116,33 +84,13 @@ const handleRecordToggle = () => {
     requestStart();
 };
 
-const toggleFullscreen = async () => {
-    const target = stageRef.value ?? document.documentElement;
-
-    try {
-        if (document.fullscreenElement) {
-            await document.exitFullscreen();
-        } else {
-            await target.requestFullscreen?.();
-        }
-    } catch {
-        // Fullscreen may be blocked by the browser.
-    }
-};
-
 useRecordingHotkeys({
-    enabled: () => Boolean(studioState.value) && !studioState.value.processing && !studioState.value.isRecorded,
+    enabled: () => Boolean(studioState.value) && !studioState.value.processing && !studioState.value.isRecorded && !writerOpen.value,
     isRecording,
     isCountingDown: () => countdown.isCountingDown,
     canStart: () => studioState.value?.initState === 'ready' && !studioState.value?.isRecorded,
     onStart: requestStart,
     onStop: handleStop,
-});
-
-watch(isRecording, (recording) => {
-    if (recording) {
-        rulesOpen.value = false;
-    }
 });
 
 watchEffect((onCleanup) => {
@@ -160,20 +108,64 @@ watchEffect((onCleanup) => {
     onCleanup(() => window.removeEventListener('keydown', handleKeyDown));
 });
 
-onMounted(() => {
-    const onFullscreenChange = () => {
-        isFullscreen.value = Boolean(document.fullscreenElement);
+// Черновик — поверх страницы, поэтому Escape закрывает его как обычную панель.
+watchEffect((onCleanup) => {
+    if (!writerOpen.value) {
+        return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') {
+            writerOpen.value = false;
+        }
     };
 
-    document.addEventListener('fullscreenchange', onFullscreenChange);
-    onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscreenChange));
+    window.addEventListener('keydown', handleKeyDown);
+    onCleanup(() => window.removeEventListener('keydown', handleKeyDown));
+});
+
+onMounted(() => {
+    onBeforeUnmount(() => countdown.cancel());
 });
 
 const isRecorded = computed(() => studioState.value?.isRecorded ?? false);
 const isPaused = computed(() => studioState.value?.isPaused ?? false);
 const initState = computed(() => studioState.value?.initState ?? 'idle');
 const isProcessing = computed(() => Boolean(studioState.value?.processing));
-const maxDuration = computed(() => studioState.value?.maxDurationSeconds ?? 600);
+const recordingTime = computed<number>(() => studioState.value?.recordingTime ?? 0);
+const recommendedSeconds = computed(() => methodology.value.recommended_seconds);
+const hardLimitSeconds = computed(() => methodology.value.hard_limit_seconds);
+const attemptsLeft = computed(() => Math.max(0, page.props.max_attempts - page.props.attempts_used));
+
+/**
+ * Предупреждения по таймингу: рекомендуемое время мягкое, технический предел —
+ * жёсткий, поэтому о приближении к нему нужно сказать заранее.
+ */
+const timingNotice = computed<{ text: string; level: 'info' | 'warn' | 'danger' } | null>(() => {
+    if (!isRecording.value) {
+        return null;
+    }
+
+    const elapsed = recordingTime.value;
+    const remaining = hardLimitSeconds.value - elapsed;
+
+    if (remaining <= 30) {
+        return { text: `Запись остановится через ${Math.max(0, Math.round(remaining))} сек`, level: 'danger' };
+    }
+
+    if (elapsed >= recommendedSeconds.value) {
+        return {
+            text: `Рекомендуемое время вышло — запас до ${formatClock(hardLimitSeconds.value)}`,
+            level: 'warn',
+        };
+    }
+
+    if (recommendedSeconds.value - elapsed <= 60) {
+        return { text: 'Приближаетесь к рекомендуемому времени', level: 'info' };
+    }
+
+    return null;
+});
 
 const permissionDismissed = ref(false);
 const showPermissionModal = computed(() => initState.value === 'error' && !permissionDismissed.value);
@@ -208,25 +200,6 @@ const visibleErrors = computed(() => [
         : []),
 ]);
 
-const handleSelectMode = (nextMode: 'video' | 'audio') => {
-    if (isRecording.value || countdown.isCountingDown || isRecorded.value) {
-        return;
-    }
-
-    countdown.cancel();
-    mode.value = nextMode;
-    studioState.value = null;
-    isRecording.value = false;
-};
-
-const toggleRules = () => {
-    rulesOpen.value = !rulesOpen.value;
-};
-
-const closeRules = () => {
-    rulesOpen.value = false;
-};
-
 const onRecordingStateChange = (recording: boolean) => {
     isRecording.value = recording;
 };
@@ -234,201 +207,168 @@ const onRecordingStateChange = (recording: boolean) => {
 const onStudioStateChange = (state: any) => {
     studioState.value = state;
 };
-
-const onRequestAudioFallback = () => handleSelectMode('audio');
 </script>
 
 <template>
-    <div
-        ref="stageRef"
-        class="studio studio--camera"
-        data-studio
-        :data-mode="mode"
-        :data-state="dataState"
-    >
-        <!-- Keep recorder mounted through review so blob URL is not revoked. -->
+    <div class="studio-page">
+        <!-- Recorder is headless in studio layout: it stays mounted while panels open and close. -->
         <PitchRecorder
             layout="studio"
-            :mode="mode"
-            :default-duration="defaultDuration"
             :on-recording-state-change="onRecordingStateChange"
             :on-studio-state-change="onStudioStateChange"
-            :on-request-audio-fallback="onRequestAudioFallback"
         />
 
-        <ProcessingOverlay v-if="isProcessing" :progress="studioState?.progress" />
+        <section class="studio-intro">
+            <h1>Тренажёр питча городских проектов</h1>
+            <p>
+                Посмотрите структуру питча — девять блоков и рекомендуемое время на каждый.
+                Время блоков — подсказка, следить за ним не нужно: важно раскрыть все девять тем
+                и уложиться в {{ formatClock(recommendedSeconds) }}.
+            </p>
+            <p>
+                Питч записывается голосом, без видео — браузер попросит доступ к микрофону.
+                Доступно {{ page.props.max_attempts }} попыток в день, сейчас осталось {{ attemptsLeft }}.
+                Готовую запись можно послушать и скачать на экране разбора.
+            </p>
+            <p>
+                После записи ИИ-эксперт даст подробную обратную связь и рекомендации
+                по структуре и качеству вашего питча.
+            </p>
 
-        <StudioReview
-            v-if="!isProcessing && isRecorded && studioState"
-            :src="studioState.recordedUrl"
-            :file="studioState.recordedFile"
-            :is-video="isVideoMode"
-            :fallback-duration="studioState.recordingTime"
-            :on-reset="studioState.onReset"
-            :on-submit="studioState.onSubmit"
-        />
+            <button type="button" class="btn btn-secondary btn-sm studio-writer-open" @click="writerOpen = true">
+                <NotebookPen :stroke-width="1.5" aria-hidden="true" />
+                Черновик питча
+            </button>
 
-        <template v-if="!isProcessing && !isRecorded">
-            <ErrorBanner :errors="visibleErrors" variant="video" />
+            <p class="studio-support">
+                Есть вопросы? Напишите в службу заботы:
+                <a href="https://t.me/cityuniversity_support" target="_blank" rel="noopener noreferrer">Telegram</a>,
+                <a href="https://max.ru/id4205423727_biz" target="_blank" rel="noopener noreferrer">MAX</a>,
+                <a href="mailto:info2-0@cityuniversity.ru">info2-0@cityuniversity.ru</a>
+            </p>
+        </section>
 
+        <div class="studio-columns">
             <div
-                class="wc-stage"
-                :class="{ 'has-draft': draftPanel.visible, 'is-resizing': draftPanel.isResizing }"
-                :style="draftPanel.visible ? { '--draft-panel-width': `${draftPanel.width}px` } : undefined"
+                class="studio-recorder studio--camera"
+                data-mode="audio"
+                :data-state="dataState"
             >
-                <div class="wc-preview">
-                    <header v-if="!isRecording && !countdown.isCountingDown" class="wc-top">
-                        <div class="wc-top-actions wc-top-actions--end">
-                            <div class="mode-switch" role="group" aria-label="Режим записи">
+                <ProcessingOverlay v-if="isProcessing" :progress="studioState?.progress" />
+
+                <StudioReview
+                    v-else-if="isRecorded && studioState"
+                    :src="studioState.recordedUrl"
+                    :file="studioState.recordedFile"
+                    :fallback-duration="studioState.recordingTime"
+                    :on-reset="studioState.onReset"
+                    :on-submit="studioState.onSubmit"
+                />
+
+                <template v-else>
+                    <ErrorBanner :errors="visibleErrors" variant="video" />
+
+                    <div class="wc-preview">
+                        <div class="wc-media wc-media--audio">
+                            <div class="wc-audio-stage">
+                                <div class="wc-audio-icon" aria-hidden="true">
+                                    <Mic :stroke-width="1.5" />
+                                </div>
+                                <VoiceMemoWaveform
+                                    :stream="studioState?.previewStream"
+                                    :is-recording="isRecording"
+                                    :height="120"
+                                />
+                                <p v-if="initState === 'loading'" class="wc-audio-status">
+                                    Подключаем микрофон…
+                                </p>
+                                <p v-else-if="initState === 'error'" class="wc-audio-status wc-audio-status--error">
+                                    {{ studioState?.initError ?? 'Нет доступа к микрофону' }}
+                                </p>
+                                <p
+                                    v-else-if="initState === 'ready' && !isRecording && !countdown.isCountingDown"
+                                    class="wc-audio-status"
+                                >
+                                    Готов к записи · рекомендуемое время {{ formatClock(recommendedSeconds) }}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div v-if="isRecording || countdown.isCountingDown" class="wc-timer" aria-live="polite">
+                            <span class="wc-timer-dot" :class="{ 'is-paused': isPaused }" aria-hidden="true" />
+                            <span class="mono">
+                                {{ formatClock(recordingTime) }} / {{ formatClock(recommendedSeconds) }}
+                            </span>
+                        </div>
+
+                        <p
+                            v-if="timingNotice"
+                            class="wc-timing-notice"
+                            :class="`is-${timingNotice.level}`"
+                            role="status"
+                            aria-live="polite"
+                        >
+                            {{ timingNotice.text }}
+                        </p>
+
+                        <div v-if="countdown.isCountingDown" class="countdown-overlay" role="status" aria-live="assertive">
+                            <div class="countdown-num countdown-digit">{{ countdown.count }}</div>
+                        </div>
+
+                        <footer class="wc-dock">
+                            <template v-if="!isRecording && !countdown.isCountingDown">
+                                <span class="wc-dock-spacer" aria-hidden="true" />
+
                                 <button
                                     type="button"
-                                    :class="{ active: isVideoMode }"
-                                    :aria-pressed="isVideoMode"
-                                    :disabled="isRecording || countdown.isCountingDown"
-                                    @click="handleSelectMode('video')"
+                                    class="wc-record"
+                                    :disabled="!studioState || initState !== 'ready'"
+                                    aria-label="Начать запись"
+                                    @click="handleRecordToggle"
                                 >
-                                    <Video :stroke-width="1.5" aria-hidden="true" />
+                                    <span class="wc-record-dot" aria-hidden="true" />
                                 </button>
+
+                                <span class="wc-dock-spacer" aria-hidden="true" />
+                            </template>
+                            <div v-else class="wc-dock-center">
                                 <button
                                     type="button"
-                                    :class="{ active: !isVideoMode }"
-                                    :aria-pressed="!isVideoMode"
-                                    :disabled="isRecording || countdown.isCountingDown"
-                                    @click="handleSelectMode('audio')"
+                                    class="wc-stop"
+                                    :aria-label="countdown.isCountingDown ? 'Отменить обратный отсчёт' : 'Остановить запись'"
+                                    @click="handleRecordToggle"
                                 >
-                                    <Mic :stroke-width="1.5" aria-hidden="true" />
+                                    <span class="wc-stop-square" aria-hidden="true" />
+                                </button>
+
+                                <button
+                                    v-if="isRecording"
+                                    type="button"
+                                    class="wc-pause"
+                                    :aria-label="isPaused ? 'Продолжить запись' : 'Пауза'"
+                                    @click="handlePauseToggle"
+                                >
+                                    <Play v-if="isPaused" :stroke-width="2" fill="currentColor" />
+                                    <Pause v-else :stroke-width="2" fill="currentColor" />
                                 </button>
                             </div>
-                            <button
-                                type="button"
-                                class="wc-cues-toggle-btn"
-                                :aria-pressed="draftPanel.visible"
-                                :aria-label="draftPanel.visible ? 'Скрыть черновик' : 'Показать черновик'"
-                                :title="draftPanel.visible ? 'Скрыть черновик' : 'Показать черновик'"
-                                @click="draftPanel.setVisible(!draftPanel.visible)"
-                            >
-                                <PanelRightClose v-if="draftPanel.visible" :stroke-width="2" />
-                                <ChevronRight v-else :stroke-width="2" />
-                            </button>
-                        </div>
-                    </header>
-                    <button
-                        v-else-if="!draftPanel.visible"
-                        type="button"
-                        class="wc-cues-toggle-btn wc-cues-toggle-btn--float"
-                        aria-label="Показать черновик"
-                        title="Показать черновик"
-                        @click="draftPanel.setVisible(true)"
-                    >
-                        <ChevronRight :stroke-width="2" />
-                    </button>
-
-                    <div :class="['wc-media', { 'wc-media--audio': !isVideoMode }]">
-                        <CameraMirror
-                            v-if="isVideoMode && studioState"
-                            placement="fullscreen"
-                            :init-state="initState"
-                            :init-error="studioState.initError"
-                            :is-recording="isRecording"
-                            :preview-video-ref="studioState.previewVideoRef"
-                            :reattach-preview="studioState.reattachPreview"
-                            is-video-mode
-                        />
-                        <div v-else class="wc-audio-stage">
-                            <div class="wc-audio-icon" aria-hidden="true">
-                                <Mic :stroke-width="1.5" />
-                            </div>
-                            <VoiceMemoWaveform
-                                :stream="studioState?.previewStream"
-                                :is-recording="isRecording"
-                                :height="160"
-                            />
-                            <p v-if="initState === 'loading'" class="wc-audio-status">
-                                Подключаем микрофон…
-                            </p>
-                            <p v-else-if="initState === 'error'" class="wc-audio-status wc-audio-status--error">
-                                {{ studioState?.initError ?? 'Нет доступа к микрофону' }}
-                            </p>
-                            <p
-                                v-else-if="initState === 'ready' && !isRecording && !countdown.isCountingDown"
-                                class="wc-audio-status"
-                            >
-                                Готов к записи
-                            </p>
-                        </div>
+                        </footer>
                     </div>
+                </template>
+            </div>
 
-                    <div v-if="isRecording || countdown.isCountingDown" class="wc-timer" aria-live="polite">
-                        <span class="wc-timer-dot" :class="{ 'is-paused': isPaused }" aria-hidden="true" />
-                        <span class="mono">
-                            {{ formatClock(studioState?.recordingTime ?? 0) }} / {{ formatClock(maxDuration) }}
-                        </span>
-                    </div>
+            <aside class="studio-structure" aria-label="Структура питча">
+                <PitchRulesContent embedded />
+            </aside>
+        </div>
 
-                    <div v-if="countdown.isCountingDown" class="countdown-overlay" role="status" aria-live="assertive">
-                        <div class="countdown-num countdown-digit">{{ countdown.count }}</div>
-                    </div>
+        <CitySilhouette class="studio-skyline" :height="52" />
 
-                    <footer class="wc-dock">
-                        <template v-if="!isRecording && !countdown.isCountingDown">
-                            <button
-                                type="button"
-                                class="wc-side-btn"
-                                :aria-expanded="rulesOpen"
-                                aria-label="Правила записи"
-                                @click="toggleRules"
-                            >
-                                <Info :stroke-width="2" />
-                            </button>
-
-                            <button
-                                type="button"
-                                class="wc-record"
-                                :disabled="!studioState || initState !== 'ready'"
-                                aria-label="Начать запись"
-                                @click="handleRecordToggle"
-                            >
-                                <span class="wc-record-dot" aria-hidden="true" />
-                            </button>
-
-                            <span class="wc-dock-spacer" aria-hidden="true" />
-                        </template>
-                        <div v-else class="wc-dock-center">
-                            <button
-                                type="button"
-                                class="wc-stop"
-                                :aria-label="countdown.isCountingDown ? 'Отменить обратный отсчёт' : 'Остановить запись'"
-                                @click="handleRecordToggle"
-                            >
-                                <span class="wc-stop-square" aria-hidden="true" />
-                            </button>
-
-                            <button
-                                v-if="isRecording"
-                                type="button"
-                                class="wc-pause"
-                                :aria-label="isPaused ? 'Продолжить запись' : 'Пауза'"
-                                @click="handlePauseToggle"
-                            >
-                                <Play v-if="isPaused" :stroke-width="2" fill="currentColor" />
-                                <Pause v-else :stroke-width="2" fill="currentColor" />
-                            </button>
-                        </div>
-                    </footer>
-
-                    <button
-                        type="button"
-                        class="wc-fullscreen"
-                        :aria-label="isFullscreen ? 'Выйти из полного экрана' : 'Полный экран'"
-                        @click="toggleFullscreen"
-                    >
-                        <Minimize2 v-if="isFullscreen" :stroke-width="2" />
-                        <Maximize2 v-else :stroke-width="2" />
-                    </button>
-                </div>
-
+        <!-- Черновик открывается поверх страницы и не размонтирует запись. -->
+        <div class="writer-drawer" :class="{ 'is-open': writerOpen }" :inert="!writerOpen">
+            <div class="writer-drawer-backdrop" @click="writerOpen = false" />
+            <div class="writer-drawer-panel" role="dialog" aria-modal="false" aria-label="Черновик питча">
                 <PitchDraftPanel
-                    v-if="draftPanel.visible"
                     :draft="pitchDraft.draft"
                     :on-change="pitchDraft.updateDraftLocally"
                     :on-clear="pitchDraft.clearDraft"
@@ -436,22 +376,22 @@ const onRequestAudioFallback = () => handleSelectMode('audio');
                     :can-undo="pitchDraft.canUndo"
                     :highlighted-blocks="pitchDraft.highlightedBlocks"
                     :status-message="pitchDraft.statusMessage"
-                    :width="draftPanel.width"
-                    :min-width="draftPanel.minWidth"
-                    :max-width="draftPanel.maxWidth"
-                    :on-hide="() => draftPanel.setVisible(false)"
-                    :on-resize-start="draftPanel.beginResize"
+                    :on-hide="() => (writerOpen = false)"
+                    :hide-navigation="isRecording"
                     context="studio"
                 />
             </div>
+        </div>
 
-            <PitchRulesDrawer :open="rulesOpen" :on-close="closeRules" />
-        </template>
+        <!-- Пока черновик открыт, таймер и индикатор записи остаются на виду. -->
+        <div v-if="isRecording && writerOpen" class="rec-pill" role="status" aria-live="polite">
+            <span class="rec-pill-dot" :class="{ 'is-paused': isPaused }" aria-hidden="true" />
+            <span class="mono">{{ formatClock(recordingTime) }} / {{ formatClock(recommendedSeconds) }}</span>
+        </div>
 
         <PermissionModal
             :open="showPermissionModal"
             :error="studioState?.initError"
-            :is-video="isVideoMode"
             :on-close="() => permissionDismissed = true"
         />
     </div>

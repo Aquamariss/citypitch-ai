@@ -56,12 +56,22 @@ class PitchRepository implements PitchRepositoryInterface
         ]);
     }
 
-    public function markCompleted(Pitch $pitch, array $transcription, array $result, string $name): void
-    {
+    public function markCompleted(
+        Pitch $pitch,
+        array $transcription,
+        array $result,
+        string $name,
+        int $score,
+        string $methodologyVersion,
+        int $durationSeconds,
+    ): void {
         $this->update($pitch, [
             'name' => $name,
             'status' => PitchStatus::Completed,
             'step' => PitchStep::Done,
+            'score' => $score,
+            'methodology_version' => $methodologyVersion,
+            'duration' => $durationSeconds,
             'transcription' => $transcription,
             'result' => $result,
         ]);

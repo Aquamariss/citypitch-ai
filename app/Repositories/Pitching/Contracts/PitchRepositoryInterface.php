@@ -29,7 +29,15 @@ interface PitchRepositoryInterface
      * @param  array<string, mixed>  $transcription
      * @param  array<string, mixed>  $result
      */
-    public function markCompleted(Pitch $pitch, array $transcription, array $result, string $name): void;
+    public function markCompleted(
+        Pitch $pitch,
+        array $transcription,
+        array $result,
+        string $name,
+        int $score,
+        string $methodologyVersion,
+        int $durationSeconds,
+    ): void;
 
     public function markFailed(Pitch $pitch, string $message): void;
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\PitchStatus;
 use App\Http\Requests\UploadPitchRequest;
 use App\Models\Pitch;
+use App\Services\Pitching\AudioContainer;
 use App\Services\Pitching\PitchingService;
 use App\Services\Pitching\PitchWriterSessionService;
 use Illuminate\Http\Request;
@@ -22,7 +23,6 @@ class PitchController extends Controller
         $draftPayload = $this->pitchWriterSessionService->payloadForUser($request->user());
 
         return Inertia::render('Pitch/Index', [
-            'default_duration' => config('pitching.default_duration_seconds', 180),
             'history_pitches' => $this->pitchingService->getCompletedHistory($request->user()),
             'draft_session' => $draftPayload['session'],
         ]);
@@ -33,14 +33,13 @@ class PitchController extends Controller
         $user = $request->user();
 
         if (! $this->pitchingService->canUploadToday($user)) {
-            return back()->withErrors(['video' => 'Превышен лимит попыток на сегодня.']);
+            return back()->withErrors(['audio' => 'Превышен лимит попыток на сегодня.']);
         }
 
         $pitchId = $this->pitchingService->initiatePitchProcessing(
             $user,
-            $request->file('video'),
+            $request->file('audio'),
             $request->validated('duration'),
-            $request->validated('media_type'),
         );
 
         return redirect()->route('pitch.status', ['pitch' => $pitchId]);
@@ -49,7 +48,7 @@ class PitchController extends Controller
     public function status(Request $request, Pitch $pitch)
     {
         if (! $request->user()->can('view', $pitch)) {
-            return redirect()->route('pitch.index')->withErrors(['video' => 'Питч не найден или удален']);
+            return redirect()->route('pitch.index')->withErrors(['audio' => 'Питч не найден или удален']);
         }
 
         if ($request->wantsJson()) {
@@ -77,16 +76,15 @@ class PitchController extends Controller
     public function result(Request $request, Pitch $pitch)
     {
         if (! $request->user()->can('view', $pitch)) {
-            return redirect()->route('pitch.index')->withErrors(['video' => 'Питч не найден или удален']);
+            return redirect()->route('pitch.index')->withErrors(['audio' => 'Питч не найден или удален']);
         }
 
         if ($pitch->status !== PitchStatus::Completed) {
-            return redirect()->route('pitch.index')->withErrors(['video' => 'Питч не найден или удален']);
+            return redirect()->route('pitch.index')->withErrors(['audio' => 'Питч не найден или удален']);
         }
 
         return Inertia::render('Pitch/Result', [
             'result' => $this->pitchingService->buildPitchResult($pitch),
-            'media_type' => $pitch->media_type->value,
             'auth_email' => $request->user()->email,
         ]);
     }
@@ -97,15 +95,13 @@ class PitchController extends Controller
             abort(404);
         }
 
-        $path = $pitch->video_path;
+        $path = $pitch->audio_path;
 
         if (! $path || ! file_exists($path)) {
             abort(404);
         }
 
-        $extension = pathinfo($path, PATHINFO_EXTENSION);
-
-        return response()->download($path, "my-pitch.{$extension}");
+        return response()->download($path, 'citypitch.'.AudioContainer::extension($path));
     }
 
     public function subtitles(Request $request, Pitch $pitch)
@@ -125,22 +121,14 @@ class PitchController extends Controller
             abort(404);
         }
 
-        $path = $pitch->video_path;
+        $path = $pitch->audio_path;
 
         if (! $path || ! file_exists($path)) {
             abort(404);
         }
 
-        $mime = match (strtolower(pathinfo($path, PATHINFO_EXTENSION))) {
-            'ogg' => 'audio/ogg',
-            'mp3' => 'audio/mpeg',
-            'wav' => 'audio/wav',
-            'm4a' => 'audio/mp4',
-            default => 'video/mp4',
-        };
-
         return response()->file($path, [
-            'Content-Type' => $mime,
+            'Content-Type' => AudioContainer::mimeType($path),
             'Accept-Ranges' => 'bytes',
         ]);
     }

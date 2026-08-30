@@ -262,7 +262,7 @@ export function usePitchRecorder(options: {
                     return;
                 }
 
-                const resolvedMime = blob.type || mimeType || 'video/webm';
+                const resolvedMime = blob.type || mimeType || 'audio/webm';
                 const extension = getFileExtension(resolvedMime);
                 const file = new File([blob], `pitch.${extension}`, { type: resolvedMime });
 

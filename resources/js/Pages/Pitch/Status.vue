@@ -6,9 +6,10 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 
 const PROC_STEPS = [
     { id: 'upload', label: 'Загрузка записи', match: ['загрузка', 'upload', 'обработка', 'обработ'] },
-    { id: 'transcribe', label: 'Транскрипция речи', match: ['распознав', 'transcrib', 'реч'] },
+    { id: 'transcribe', label: 'Распознавание речи', match: ['распознав', 'transcrib', 'реч'] },
+    { id: 'segment', label: 'Разметка по блокам', match: ['разметка', 'блок', 'segment'] },
     { id: 'analyze', label: 'Оценка по критериям', match: ['анализ', 'analyz', 'критер'] },
-    { id: 'verdict', label: 'Сборка вердикта', match: ['готов', 'completed', 'вердикт', 'отчёт', 'отчет'] },
+    { id: 'verdict', label: 'Сборка разбора', match: ['готов', 'completed', 'вердикт', 'разбор', 'отчёт', 'отчет'] },
 ];
 
 const resolveStepIndex = (step: string | null, status: string): number => {
@@ -81,7 +82,7 @@ watchEffect((onCleanup) => {
 
 <template>
     <AppLayout>
-        <Head title="Обработка питча — Pitch AI" />
+        <Head title="Обработка питча — Citypitch-AI" />
 
         <div class="page">
             <div class="card proc-card" :class="{ 'is-error': isError }" data-processing :aria-busy="isError ? 'false' : 'true'">
@@ -91,7 +92,7 @@ watchEffect((onCleanup) => {
                 <p>
                     {{ isError
                         ? 'К сожалению, мы не смогли обработать вашу запись. Попробуйте записать питч ещё раз.'
-                        : 'Транскрибируем речь и оцениваем по критериям инвестора. Обычно 1–2 минуты.' }}
+                        : 'Распознаём речь, размечаем питч по блокам методики и оцениваем по критериям. Обычно несколько минут.' }}
                 </p>
 
                 <div v-if="isError" class="error-banner" role="alert">

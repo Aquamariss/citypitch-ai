@@ -6,14 +6,12 @@ import VoiceMemoWaveform from './VoiceMemoWaveform.vue';
 const props = withDefaults(defineProps<{
     src?: string | null;
     file?: File | Blob | null;
-    isVideo?: boolean;
     fallbackDuration?: number;
     onReset?: () => void;
     onSubmit?: () => void;
 }>(), {
     src: null,
     file: null,
-    isVideo: true,
     fallbackDuration: 0,
 });
 
@@ -79,11 +77,7 @@ watch([() => props.file, () => props.src], ([file, src], _old, onCleanup) => {
     onCleanup(() => URL.revokeObjectURL(objectUrl));
 }, { immediate: true });
 
-watch([() => props.file, () => props.isVideo], ([file, isVideo], _old, onCleanup) => {
-    if (isVideo) {
-        return;
-    }
-
+watch(() => props.file, (file, _old, onCleanup) => {
     let cancelled = false;
     onCleanup(() => { cancelled = true; });
 
@@ -186,7 +180,7 @@ const togglePlay = async () => {
     const media = mediaRef.value;
 
     if (!media || !playbackUrl.value) {
-        mediaError.value = props.isVideo ? 'Нет видео для воспроизведения' : 'Нет аудио для воспроизведения';
+        mediaError.value = 'Нет аудио для воспроизведения';
 
         return;
     }
@@ -243,22 +237,7 @@ const toggleFullscreen = async () => {
 
 <template>
     <div class="wc-review">
-        <video
-            v-if="isVideo"
-            ref="mediaRef"
-            :src="playbackUrl ?? undefined"
-            playsinline
-            preload="auto"
-            class="wc-video"
-            @timeupdate="handleTimeUpdate"
-            @loadedmetadata="handleLoadedMetadata"
-            @play="isPlaying = true"
-            @pause="isPlaying = false"
-            @ended="handleEnded"
-            @error="handleMediaError"
-        />
-
-        <div v-else class="wc-review-audio">
+        <div class="wc-review-audio">
             <audio
                 ref="mediaRef"
                 :src="playbackUrl ?? undefined"
@@ -335,9 +314,7 @@ const toggleFullscreen = async () => {
                 <X :stroke-width="2" />
             </button>
             <div class="wc-confirm-body">
-                <h2 id="wc-delete-title">
-                    {{ isVideo ? 'Удалить эту видеозапись?' : 'Удалить эту аудиозапись?' }}
-                </h2>
+                <h2 id="wc-delete-title">Удалить эту аудиозапись?</h2>
                 <p>Если вы не сохранили эту запись, она будет потеряна.</p>
                 <div class="wc-confirm-actions">
                     <button type="button" class="wc-confirm-cancel" @click="confirmDelete = false">

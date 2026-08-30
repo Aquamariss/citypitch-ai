@@ -9,6 +9,7 @@ import {
     type BlockKey,
     type PitchDraft,
 } from '@/lib/pitchDraft';
+import { blockLabel } from '@/lib/pitchMethodology';
 import { getCsrfToken } from '@/lib/sse';
 
 async function jsonRequest(url: string, { method = 'GET', body }: { method?: string; body?: any } = {}): Promise<any> {
@@ -212,17 +213,4 @@ export function usePitchDraft({
         handleAgentDraftUpdate,
         applySession,
     });
-}
-
-function blockLabel(key: string): string {
-    const labels: Record<string, string> = {
-        problem: 'Проблема',
-        solution: 'Решение',
-        market: 'Рынок',
-        business: 'Бизнес-модель',
-        team: 'Команда',
-        cta: 'Запрос',
-    };
-
-    return labels[key] ?? key;
 }

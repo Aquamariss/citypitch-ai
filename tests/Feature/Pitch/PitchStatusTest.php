@@ -66,6 +66,6 @@ class PitchStatusTest extends TestCase
             ->get(route('pitch.result', ['pitch' => $pitch->id]));
 
         $response->assertRedirect(route('pitch.index'));
-        $response->assertSessionHasErrors('video');
+        $response->assertSessionHasErrors('audio');
     }
 }

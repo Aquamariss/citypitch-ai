@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Repositories\Pitching\Contracts\PitchRepositoryInterface;
+use App\Services\Pitching\PitchMethodology;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -32,6 +33,7 @@ class HandleInertiaRequests extends Middleware
                 ? $this->pitchRepository->countTodayAttempts($request->user()->id)
                 : 0,
             'max_attempts' => fn () => config('pitching.max_daily_attempts', 5),
+            'methodology' => fn () => PitchMethodology::toArray(),
         ];
     }
 }

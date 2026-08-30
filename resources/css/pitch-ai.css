@@ -40,6 +40,7 @@ h1, h2, h3, h4 {
 /* Shell */
 .app-shell {
   display: flex;
+  height: 100dvh;
   min-height: 100dvh;
   overflow: hidden;
 }
@@ -70,10 +71,10 @@ h1, h2, h3, h4 {
   width: 28px;
   height: 28px;
   border-radius: var(--radius-md);
-  background: var(--accent);
+  background: var(--lime);
   display: grid;
   place-items: center;
-  color: oklch(12% 0.02 75);
+  color: var(--lime-fg);
 }
 
 .logo-mark svg { width: 14px; height: 14px; }
@@ -160,7 +161,7 @@ h1, h2, h3, h4 {
 
 .attempts-fill {
   height: 100%;
-  background: var(--accent);
+  background: var(--lime);
   border-radius: 999px;
   width: 40%;
 }
@@ -3082,4 +3083,287 @@ h1, h2, h3, h4 {
     width: 70px;
     height: 70px;
   }
+}
+
+/* ==========================================================================
+   Главная страница тренажёра
+   ========================================================================== */
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.15;
+  min-width: 0;
+}
+
+.brand-text strong {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.brand-text small {
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.sidebar-logo {
+  height: auto;
+  min-height: var(--header-height);
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.sidebar-skyline {
+  color: var(--accent);
+  opacity: 0.4;
+  margin-top: 6px;
+}
+
+.studio-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+@media (min-width: 768px) {
+  .studio-page { padding: 24px 24px 0; }
+}
+
+.studio-intro h1 {
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  margin-bottom: 10px;
+}
+
+@media (min-width: 768px) {
+  .studio-intro h1 { font-size: 26px; }
+}
+
+.studio-intro p {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+  max-width: 72ch;
+}
+
+.studio-intro p + p { margin-top: 8px; }
+
+.studio-writer-open { margin-top: 14px; }
+.studio-writer-open svg { width: 16px; height: 16px; }
+
+.studio-support {
+  margin-top: 14px;
+  font-size: 13px;
+}
+
+.studio-support a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.studio-support a:hover { color: var(--accent-hover); }
+
+.studio-columns {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .studio-columns {
+    grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
+  }
+}
+
+.studio-recorder {
+  position: relative;
+  height: clamp(320px, 42vh, 420px);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.studio-recorder .wc-preview {
+  position: absolute;
+  inset: 0;
+}
+
+/* Кнопки полного экрана и правил в карточке нет — док центрируем ровно. */
+.studio-recorder .wc-dock {
+  padding: 16px 20px calc(16px + env(safe-area-inset-bottom, 0));
+}
+
+.studio-recorder .wc-audio-stage {
+  padding: 18px 12px 82px;
+  gap: 14px;
+}
+
+.studio-recorder .wc-audio-icon {
+  width: 60px;
+  height: 60px;
+}
+
+.studio-recorder .wc-audio-icon svg { width: 26px; height: 26px; }
+
+.studio-structure {
+  display: flex;
+  height: clamp(320px, 42vh, 420px);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+@media (max-width: 899px) {
+  .studio-structure {
+    height: auto;
+    max-height: none;
+  }
+
+  .studio-structure > div {
+    height: auto;
+    overflow: visible;
+  }
+
+  .studio-structure .custom-scrollbar {
+    overflow: visible;
+  }
+}
+
+.studio-skyline {
+  color: var(--accent);
+  opacity: 0.3;
+  margin-top: auto;
+}
+
+/* Предупреждения по таймингу поверх карточки записи */
+.wc-timing-notice {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 11;
+  margin: 0;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  background: var(--wc-timer-bg);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--wc-panel-border);
+  color: var(--wc-soft);
+  white-space: nowrap;
+  max-width: calc(100% - 24px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wc-timing-notice.is-warn {
+  color: var(--warning);
+  border-color: color-mix(in oklch, var(--warning) 45%, transparent);
+}
+
+.wc-timing-notice.is-danger {
+  color: var(--danger);
+  border-color: color-mix(in oklch, var(--danger) 50%, transparent);
+}
+
+/* Черновик питча — выдвижная панель поверх страницы */
+.writer-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+}
+
+.writer-drawer.is-open { pointer-events: auto; }
+
+.writer-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in oklch, var(--bg) 55%, transparent);
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.writer-drawer.is-open .writer-drawer-backdrop { opacity: 1; }
+
+.writer-drawer-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(460px, 100%);
+  display: flex;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  transform: translateX(100%);
+  transition: transform 0.25s ease;
+}
+
+.writer-drawer.is-open .writer-drawer-panel { transform: none; }
+
+.writer-drawer-panel .pitch-draft-panel {
+  width: 100% !important;
+  border: none;
+  border-radius: 0;
+}
+
+/* Место под индикатор записи, который висит поверх списка блоков. */
+.writer-drawer-panel .pitch-draft-list {
+  padding-bottom: 76px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .writer-drawer-panel { transition: none; }
+}
+
+/* Индикатор записи остаётся виден, пока открыт черновик */
+.rec-pill {
+  position: fixed;
+  z-index: 70;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+  background: color-mix(in oklch, var(--bg) 82%, transparent);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+}
+
+.rec-pill-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--record);
+  box-shadow: 0 0 0 4px var(--record-pulse);
+  animation: wc-pulse 1.4s ease-in-out infinite;
+}
+
+.rec-pill-dot.is-paused {
+  animation: none;
+  background: var(--muted);
+  box-shadow: none;
+}
+
+@media (min-width: 900px) {
+  .rec-pill { display: none; }
 }

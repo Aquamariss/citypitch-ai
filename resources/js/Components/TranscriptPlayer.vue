@@ -12,12 +12,10 @@ interface TranscriptPhrase {
 const props = withDefaults(defineProps<{
     mediaUrl?: string | null;
     transcript?: TranscriptPhrase[];
-    mediaType?: 'audio' | 'video';
     duration?: number;
 }>(), {
     mediaUrl: null,
     transcript: () => [],
-    mediaType: 'video',
     duration: 0,
 });
 
@@ -145,25 +143,7 @@ const progressPct = computed(() => (mediaDuration.value > 0 ? (currentTime.value
 <template>
     <div class="flex flex-col gap-4 w-full">
         <div class="rounded-2xl overflow-hidden" :style="{ border: '1px solid var(--border-subtle)' }">
-            <div v-if="mediaType === 'video'" class="relative bg-black" style="aspect-ratio: 16/9">
-                <video
-                    v-if="mediaUrl"
-                    :key="playerKey"
-                    ref="playerRef"
-                    :src="mediaUrl"
-                    controls
-                    preload="metadata"
-                    class="w-full h-full object-contain"
-                    @timeupdate="handleTimeUpdate"
-                    @loadedmetadata="handleLoadedMetadata"
-                    @durationchange="handleDurationChange"
-                    @play="isPlaying = true"
-                    @pause="isPlaying = false"
-                    @ended="isPlaying = false"
-                />
-            </div>
-
-            <div v-else class="p-4 flex items-center gap-3" :style="{ backgroundColor: 'var(--bg-card)' }">
+            <div class="p-4 flex items-center gap-3" :style="{ backgroundColor: 'var(--bg-card)' }">
                 <audio
                     v-if="mediaUrl"
                     :key="playerKey"

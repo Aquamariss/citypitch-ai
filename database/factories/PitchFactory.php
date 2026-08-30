@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Enums\MediaType;
 use App\Enums\PitchStatus;
 use App\Enums\PitchStep;
 use App\Models\Pitch;
@@ -25,9 +24,8 @@ class PitchFactory extends Factory
             'user_id' => User::factory(),
             'status' => PitchStatus::Processing,
             'step' => PitchStep::Upload,
-            'video_path' => null,
-            'duration' => 180,
-            'media_type' => MediaType::Video,
+            'audio_path' => null,
+            'duration' => 600,
             'transcription' => null,
             'result' => null,
             'error_message' => null,
@@ -45,24 +43,54 @@ class PitchFactory extends Factory
     public function completed(): static
     {
         return $this->state(fn () => [
-            'name' => 'AI-репетитор для школьников',
+            'name' => 'Соседский центр в Заречье',
             'status' => PitchStatus::Completed,
             'step' => PitchStep::Done,
+            'score' => 72,
+            'methodology_version' => 'city-2026-08',
+            'duration' => 585,
             'transcription' => [
-                'text' => 'Test transcription',
-                'duration' => 120.0,
+                'text' => 'Меня зовут Анна, я занимаюсь развитием районных сообществ.',
+                'duration' => 585.0,
                 'language' => 'ru',
                 'segments' => [
-                    ['start' => 0.0, 'end' => 2.5, 'text' => 'Hello world'],
+                    ['start' => 0.0, 'end' => 2.5, 'text' => 'Меня зовут Анна'],
                 ],
             ],
             'result' => [
-                'summary' => 'Good pitch',
+                'score' => 72,
                 'isPassed' => true,
-                'criteria' => [],
-                'overallFeedback' => 'Well done',
+                'summary' => 'Понятный питч с сильным блоком о ценности для города.',
+                'overallFeedback' => 'Добавьте конкретики в показатели.',
+                'criteria' => [
+                    [
+                        'key' => 'structure',
+                        'name' => 'Структура',
+                        'score' => 25.0,
+                        'maxScore' => 30.0,
+                        'feedback' => 'Почти все блоки на месте.',
+                    ],
+                ],
+                'blocks' => [
+                    [
+                        'key' => 'intro',
+                        'title' => 'Представление',
+                        'status' => 'covered',
+                        'actualSeconds' => 40,
+                        'limitSeconds' => 45,
+                        'feedback' => 'Коротко и по делу.',
+                    ],
+                ],
+                'speech' => ['fillerCount' => 4, 'fillerTop' => [], 'wordCount' => 900],
+                'duration' => [
+                    'actualSeconds' => 585,
+                    'recommendedSeconds' => 600,
+                    'hardLimitSeconds' => 720,
+                    'wasCutOff' => false,
+                ],
+                'methodologyVersion' => 'city-2026-08',
             ],
-            'video_path' => storage_path('app/public/pitches/1/pitch.webm'),
+            'audio_path' => storage_path('app/public/pitches/1/pitch.ogg'),
         ]);
     }
 

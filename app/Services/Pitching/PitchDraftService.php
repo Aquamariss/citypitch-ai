@@ -4,23 +4,35 @@ namespace App\Services\Pitching;
 
 final class PitchDraftService
 {
-    public const KEYS = ['problem', 'solution', 'market', 'business', 'team', 'cta'];
+    /**
+     * Ключи блоков черновика. Совпадают с блоками методики.
+     *
+     * @return list<string>
+     */
+    public static function keys(): array
+    {
+        return PitchMethodology::keys();
+    }
 
-    public const LABELS = [
-        'problem' => 'Проблема',
-        'solution' => 'Решение',
-        'market' => 'Рынок',
-        'business' => 'Бизнес-модель',
-        'team' => 'Команда',
-        'cta' => 'Запрос',
-    ];
+    /**
+     * @return array<string, string>
+     */
+    public static function labels(): array
+    {
+        return PitchMethodology::labels();
+    }
+
+    public static function label(string $key): string
+    {
+        return PitchMethodology::label($key);
+    }
 
     /**
      * @return array<string, string>
      */
     public function empty(): array
     {
-        return array_fill_keys(self::KEYS, '');
+        return array_fill_keys(self::keys(), '');
     }
 
     /**
@@ -31,7 +43,7 @@ final class PitchDraftService
     {
         $normalized = $this->empty();
 
-        foreach (self::KEYS as $key) {
+        foreach (self::keys() as $key) {
             $normalized[$key] = isset($blocks[$key]) ? (string) $blocks[$key] : '';
         }
 
@@ -49,7 +61,7 @@ final class PitchDraftService
         $changed = [];
         $maxLength = (int) config('pitching.writer_max_block_length', 1500);
 
-        foreach (self::KEYS as $key) {
+        foreach (self::keys() as $key) {
             if (! array_key_exists($key, $patch)) {
                 continue;
             }
@@ -85,10 +97,11 @@ final class PitchDraftService
     public function toPromptSnapshot(array $blocks): string
     {
         $lines = [];
+        $labels = self::labels();
 
-        foreach (self::KEYS as $key) {
+        foreach (self::keys() as $key) {
             $content = trim($blocks[$key] ?? '');
-            $label = self::LABELS[$key];
+            $label = $labels[$key];
             $lines[] = $content === ''
                 ? "{$label}: (пусто)"
                 : "{$label}: {$content}";

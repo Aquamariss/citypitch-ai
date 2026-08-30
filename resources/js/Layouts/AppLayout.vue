@@ -5,6 +5,7 @@ import { route } from 'ziggy-js';
 import { Bot, Clock, LogOut, Mic } from 'lucide-vue-next';
 import ThemeToggle from '@/Components/ThemeToggle.vue';
 import LogoMark from '@/Components/LogoMark.vue';
+import CitySilhouette from '@/Components/CitySilhouette.vue';
 
 withDefaults(defineProps<{ chrome?: boolean }>(), { chrome: true });
 
@@ -61,7 +62,10 @@ const errorValues = computed(() => Object.values(page.props.errors ?? {}));
         <aside class="sidebar">
             <Link :href="route('pitch.index')" class="sidebar-logo">
                 <LogoMark :size="28" />
-                <span>Pitch AI</span>
+                <span class="brand-text">
+                    <strong>Citypitch-AI</strong>
+                    <small>@ Cityuniversity 2.0</small>
+                </span>
             </Link>
 
             <nav class="sidebar-nav">
@@ -102,6 +106,8 @@ const errorValues = computed(() => Object.values(page.props.errors ?? {}));
                         <LogOut :stroke-width="1.5" />
                     </Link>
                 </div>
+
+                <CitySilhouette class="sidebar-skyline" :height="36" />
             </div>
         </aside>
 
@@ -109,7 +115,10 @@ const errorValues = computed(() => Object.values(page.props.errors ?? {}));
             <header class="app-header">
                 <Link :href="route('pitch.index')" class="app-brand">
                     <LogoMark :size="24" />
-                    <strong>Pitch AI</strong>
+                    <span class="brand-text">
+                        <strong>Citypitch-AI</strong>
+                        <small>@ Cityuniversity 2.0</small>
+                    </span>
                 </Link>
                 <div class="flex items-center gap-3 ml-auto">
                     <span class="md:hidden text-xs mono" :style="{ color: 'var(--muted)' }">

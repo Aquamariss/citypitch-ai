@@ -20,7 +20,7 @@ class ImportPitchWriterDraftRequest extends FormRequest
         $maxLength = (int) config('pitching.writer_max_block_length', 1500);
         $blockRules = [];
 
-        foreach (PitchDraftService::KEYS as $key) {
+        foreach (PitchDraftService::keys() as $key) {
             $blockRules["blocks.{$key}"] = ['nullable', 'string', "max:{$maxLength}"];
         }
 

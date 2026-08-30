@@ -2,10 +2,9 @@
 
 namespace App\Services\Pitching;
 
-use App\DTO\PitchAnalysisResultDto;
+use App\DTO\PitchEvaluationDto;
 use App\DTO\PitchResultDto;
 use App\DTO\TranscriptionResultDto;
-use App\Enums\MediaType;
 use App\Enums\PitchStatus;
 use App\Enums\PitchStep;
 use App\Jobs\ProcessPitchJob;
@@ -21,7 +20,9 @@ class PitchingService
     public function __construct(
         private PitchRepositoryInterface $pitchRepository,
         private TranscriptionService $transcriptionService,
+        private PitchSegmentationService $segmentationService,
         private PitchAnalysisService $analysisService,
+        private PitchScoringService $scoringService,
     ) {}
 
     public function canUploadToday(User $user): bool
@@ -33,79 +34,90 @@ class PitchingService
     }
 
     /**
-     * @return array<int, array{id: string, name: string, created_at: string, duration: int|null, media_type: string, isPassed: bool}>
+     * @return array<int, array{id: string, name: string, created_at: string, duration: int|null, score: int, isPassed: bool}>
      */
     public function getCompletedHistory(User $user): array
     {
         return $this->pitchRepository->getCompletedByUserId($user->id)
             ->map(fn (Pitch $pitch) => [
                 'id' => $pitch->id,
-                'name' => $pitch->name ?? 'Стартап-питч',
-                'created_at' => $pitch->created_at->format('d.m.Y H:i'),
+                'name' => $pitch->name ?? 'Питч городского проекта',
+                'created_at' => $pitch->created_at->toIso8601String(),
                 'duration' => $pitch->duration,
-                'media_type' => $pitch->media_type->value,
+                'score' => (int) ($pitch->score ?? $pitch->result['score'] ?? 0),
                 'isPassed' => $pitch->result['isPassed'] ?? false,
             ])
             ->all();
     }
 
-    public function initiatePitchProcessing(User $user, UploadedFile $video, int $durationSeconds, string $mediaType = 'video'): string
+    public function initiatePitchProcessing(User $user, UploadedFile $audio, int $durationSeconds): string
     {
-        return DB::transaction(function () use ($user, $video, $durationSeconds, $mediaType) {
+        return DB::transaction(function () use ($user, $audio, $durationSeconds) {
             $pitch = $this->pitchRepository->create([
                 'user_id' => $user->id,
                 'duration' => $durationSeconds,
-                'media_type' => MediaType::from($mediaType),
                 'status' => PitchStatus::Processing,
                 'step' => PitchStep::Upload,
             ]);
 
             $pitchId = $pitch->id;
-            $extension = $this->resolveMediaExtension($video, $mediaType);
+            $extension = $this->resolveAudioExtension($audio);
 
-            $path = $video->storeAs("pitches/{$user->id}", "{$pitchId}.{$extension}", 'public');
-            $videoPath = Storage::disk('public')->path($path);
+            $path = $audio->storeAs("pitches/{$user->id}", "{$pitchId}.{$extension}", 'public');
+            $audioPath = Storage::disk('public')->path($path);
 
             $this->pitchRepository->update($pitch, [
-                'video_path' => $videoPath,
+                'audio_path' => $audioPath,
             ]);
 
-            ProcessPitchJob::dispatch($pitchId, $videoPath, $durationSeconds);
+            ProcessPitchJob::dispatch($pitchId, $audioPath);
 
             return $pitchId;
         });
     }
 
-    public function process(string $pitchId, string $videoPath, int $durationSeconds): PitchResultDto
+    public function process(string $pitchId, string $audioPath): PitchResultDto
     {
         $pitch = $this->pitchRepository->findOrFail($pitchId);
 
         $this->pitchRepository->markProcessing($pitch, PitchStep::Transcription);
-        $transcription = $this->transcriptionService->transcribe($videoPath);
+        $transcription = $this->transcriptionService->transcribe($audioPath);
+
+        $this->pitchRepository->markProcessing($pitch, PitchStep::Segmentation);
+        $segmentation = $this->segmentationService->segment($transcription->text, $transcription->segments);
 
         $this->pitchRepository->markProcessing($pitch, PitchStep::Analysis);
-        $analysis = $this->analysisService->analyze($transcription->text, $durationSeconds, $transcription->duration);
-
-        $result = $this->buildPitchResultFromData(
-            pitchId: $pitchId,
-            videoPath: $pitch->video_path,
-            transcription: $transcription,
-            analysis: $analysis,
+        $actualSeconds = (int) round($transcription->duration);
+        $speech = $this->scoringService->analyzeSpeech($transcription->text);
+        $analysis = $this->analysisService->analyze(
+            $this->scoringService->buildBlockTexts($segmentation, $transcription->segments, $transcription->text),
+            $actualSeconds,
+            $speech['fillerCount'],
+            $this->scoringService->wasCutOff($actualSeconds),
         );
 
-        $this->pitchRepository->markCompleted($pitch, [
-            'text' => $transcription->text,
-            'duration' => $transcription->duration,
-            'language' => $transcription->language,
-            'segments' => $transcription->segments,
-        ], [
-            'summary' => $analysis->summary,
-            'isPassed' => $analysis->isPassed,
-            'criteria' => $analysis->criteria,
-            'overallFeedback' => $analysis->overallFeedback,
-        ], $this->resolvePitchName($analysis->name));
+        $evaluation = $this->scoringService->evaluate($segmentation, $analysis, $transcription);
 
-        return $result;
+        $this->pitchRepository->markCompleted(
+            $pitch,
+            [
+                'text' => $transcription->text,
+                'duration' => $transcription->duration,
+                'language' => $transcription->language,
+                'segments' => $transcription->segments,
+            ],
+            $evaluation->toArray(),
+            $evaluation->name,
+            $evaluation->score,
+            $evaluation->methodologyVersion,
+            $actualSeconds,
+        );
+
+        return $this->buildPitchResultFromData(
+            pitchId: $pitchId,
+            transcription: $transcription,
+            analysis: $evaluation,
+        );
     }
 
     public function failProcessing(string $pitchId, string $message): void
@@ -126,19 +138,10 @@ class PitchingService
             segments: $pitch->transcription['segments'] ?? [],
         );
 
-        $analysis = new PitchAnalysisResultDto(
-            name: $pitch->name ?? '',
-            summary: $pitch->result['summary'] ?? '',
-            isPassed: $pitch->result['isPassed'] ?? false,
-            criteria: $pitch->result['criteria'] ?? [],
-            overallFeedback: $pitch->result['overallFeedback'] ?? '',
-        );
-
         return $this->buildPitchResultFromData(
             pitchId: $pitch->id,
-            videoPath: $pitch->video_path,
             transcription: $transcription,
-            analysis: $analysis,
+            analysis: PitchEvaluationDto::fromArray($pitch->result ?? [], $pitch->name ?? ''),
             status: $pitch->status->value,
         );
     }
@@ -162,14 +165,13 @@ class PitchingService
 
     private function buildPitchResultFromData(
         string $pitchId,
-        string $videoPath,
         TranscriptionResultDto $transcription,
-        PitchAnalysisResultDto $analysis,
+        PitchEvaluationDto $analysis,
         string $status = 'completed',
     ): PitchResultDto {
         return new PitchResultDto(
             id: $pitchId,
-            videoUrl: route('pitch.media', ['pitch' => $pitchId]),
+            audioUrl: route('pitch.media', ['pitch' => $pitchId]),
             transcription: $transcription,
             analysis: $analysis,
             status: $status,
@@ -186,28 +188,17 @@ class PitchingService
         return sprintf('%02d:%02d:%02d.%03d', $hours, $minutes, $secs, $milliseconds);
     }
 
-    private function resolvePitchName(string $name): string
-    {
-        $name = trim($name);
-
-        return $name !== '' ? $name : 'Стартап-питч';
-    }
-
     /**
-     * Normalize audio to a seekable container. RecordRTC streams webm/opus
-     * without a duration header; renaming the extension keeps browsers from
-     * misreading it. mp3 already carries a seekable index.
+     * Нормализация контейнера: RecordRTC отдаёт webm/opus без заголовка
+     * длительности, поэтому такие записи сохраняем как ogg — иначе браузер
+     * не может перематывать. mp3 и остальные форматы уже перематываются.
      */
-    private function resolveMediaExtension(UploadedFile $video, string $mediaType): string
+    private function resolveAudioExtension(UploadedFile $audio): string
     {
-        $clientExt = strtolower($video->getClientOriginalExtension() ?: '');
+        $clientExtension = strtolower($audio->getClientOriginalExtension() ?: '');
 
-        if ($mediaType !== 'audio') {
-            return $clientExt !== '' ? $clientExt : 'webm';
-        }
-
-        return match ($clientExt) {
-            'mp3', 'wav', 'm4a', 'ogg', 'oga' => $clientExt,
+        return match ($clientExtension) {
+            'mp3', 'wav', 'm4a', 'ogg', 'oga' => $clientExtension,
             default => 'ogg',
         };
     }
