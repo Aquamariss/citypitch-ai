@@ -23,13 +23,13 @@ class PitchWriterAgentDraftTest extends TestCase
 
         $service = app(PitchWriterSessionService::class);
         $result = $service->applyAgentPatch($session, [
-            'problem' => 'Фаундеры готовят питч без обратной связи.',
-            'solution' => 'Pitch AI даёт оценку до демо-дня.',
+            'problem' => 'Команды готовят питч без обратной связи.',
+            'idea' => 'Мы создаём тренажёр питчинга для городских команд.',
         ]);
 
-        $this->assertSame(['problem', 'solution'], $result['changed']);
+        $this->assertSame(['problem', 'idea'], $result['changed']);
         $this->assertSame(
-            'Фаундеры готовят питч без обратной связи.',
+            'Команды готовят питч без обратной связи.',
             $result['blocks']['problem']
         );
         $this->assertDatabaseCount('pitch_writer_draft_revisions', 1);

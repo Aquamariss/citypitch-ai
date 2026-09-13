@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { AudioLines, CheckCircle } from 'lucide-vue-next';
+import { AudioLines, CheckCircle, MicOff } from 'lucide-vue-next';
 
 defineOptions({ inheritAttrs: false });
 import AudioPreviewPlayer from './AudioPreviewPlayer.vue';
@@ -16,8 +16,7 @@ const props = withDefaults(defineProps<{
     isRecording?: boolean;
     isRecorded?: boolean;
     recordingTime?: number;
-    targetTimeMins?: number;
-    onTargetTimeChange?: (mins: number) => void;
+    recommendedSeconds?: number;
     recordedUrl?: string | null;
     nativeMediaRecorder?: MediaRecorder | null;
     formErrors?: Record<string, string>;
@@ -35,7 +34,7 @@ const props = withDefaults(defineProps<{
     isRecording: false,
     isRecorded: false,
     recordingTime: 0,
-    targetTimeMins: 3,
+    recommendedSeconds: 600,
     recordedUrl: null,
     nativeMediaRecorder: null,
     formErrors: () => ({}),
@@ -71,8 +70,7 @@ const visibleErrors = computed(() => [
                 v-if="!isRecorded && initState !== 'error' && initState !== 'loading'"
                 :is-recording="isRecording"
                 :recording-time="recordingTime"
-                :target-time-mins="targetTimeMins"
-                :on-target-time-change="onTargetTimeChange"
+                :recommended-seconds="recommendedSeconds"
             />
         </div>
 
@@ -87,7 +85,7 @@ const visibleErrors = computed(() => [
 
             <div v-if="initState === 'error'" class="flex flex-col items-center gap-4 text-center">
                 <div class="w-14 h-14 rounded-2xl flex items-center justify-center" :style="{ backgroundColor: 'var(--danger-subtle)' }">
-                    <VideoOff class="w-7 h-7 text-red-400" :stroke-width="1.5" />
+                    <MicOff class="w-7 h-7 text-red-400" :stroke-width="1.5" />
                 </div>
                 <div>
                     <p class="font-semibold text-zinc-200 mb-1">Нет доступа к микрофону</p>

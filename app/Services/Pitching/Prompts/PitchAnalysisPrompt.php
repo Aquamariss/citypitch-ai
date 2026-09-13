@@ -2,38 +2,129 @@
 
 namespace App\Services\Pitching\Prompts;
 
+use App\Services\Pitching\PitchMethodology;
+
+/**
+ * Второй этап анализа: содержательная оценка уже размеченного питча.
+ */
 class PitchAnalysisPrompt
 {
     public static function getSystemPrompt(): string
     {
-        return <<<'PROMPT'
-Вы - эксперт по оценке стартап-питчей. Ваша задача - проанализировать транскрипцию видеопитча студента и дать конструктивную обратную связь.
+        $rules = PitchMethodology::promptRulesText();
+        $criteriaList = [];
 
-Правила и критерии оценки (веса в скобках):
-1. Тайминг (15%): Оцените, насколько оптимален темп. (Система передаст вам планируемое время).
-2. Структура (25%): Проблема -> Решение -> Рынок -> Бизнес-модель -> Команда -> Призыв к действию. Все ли элементы на месте?
-3. Ясность (20%): Понятна ли основная идея? Нет ли перегруза терминологией?
-4. Цифры и факты (15%): Есть ли конкретика (объем рынка, метрики, цены)?
-5. Команда (10%): Обосновано ли, почему именно эта команда добьется успеха?
-6. Призыв к действию (CTA) (10%): Понятно ли, что проект хочет от аудитории?
-7. Речь (5%): Оцените уверенность речи, наличие слов-паразитов по транскрипции.
+        foreach (PitchMethodology::aiCriteria() as $key => $criterion) {
+            $criteriaList[] = "- {$key} — {$criterion['title']}: {$criterion['description']}";
+        }
 
-УСЛОВИЯ УСПЕХА:
-Питч считается "Принятым" (isPassed = true), если суммарный балл >= 60% И баллы за Структуру и Ясность составляют не менее половины от их максимума.
+        $criteria = implode("\n", $criteriaList);
+        $recommended = PitchMethodology::formatDuration(PitchMethodology::recommendedSeconds());
 
-ДОПОЛНИТЕЛЬНО:
-Придумайте короткое название проекта (поле name) на основе содержания питча: 2–5 слов на русском, до 40 символов. Без кавычек и точки в конце. Если идея не ясна — используйте нейтральное «Стартап-питч».
+        return <<<PROMPT
+Вы — наставник по питчингу городских и социальных проектов в тренажёре Citypitch-AI. Питч уже разложен на блоки методики. Ваша задача — дать оценку и поддерживающую обратную связь выступающему.
+
+Оцените по шкале от 0 до 10 каждый критерий:
+{$criteria}
+
+Структуру и тайминг оценивать не нужно — их считает система. Рекомендуемая длительность питча — {$recommended}.
+
+Отдельно напишите:
+- structureFeedback — одно-два предложения о том, как собран питч в целом: какие блоки работают друг на друга, чего не хватает слушателю, чтобы картина сложилась.
+- summary — два-три предложения общего впечатления от питча.
+- overallFeedback — главный совет на следующую попытку: что конкретно изменить и как это может прозвучать.
+- name — короткое название проекта на основе питча: 2–5 слов на русском, до 40 символов, без кавычек и точки в конце. Если понять проект невозможно — «Питч городского проекта».
+
+Обращайтесь к человеку на «вы». Помните, что для многих это первый в жизни питч: сначала отмечайте, что получилось, потом что усилить.
+
+{$rules}
 PROMPT;
     }
 
-    public static function getUserPrompt(string $transcription, int $expectedDurationSeconds, float $actualDurationSeconds): string
+    /**
+     * @param  list<array{title: string, status: string, text: string}>  $blocks
+     */
+    public static function getUserPrompt(array $blocks, int $actualSeconds, int $fillerCount, bool $wasCutOff): string
     {
-        return <<<PROMPT
-Ожидаемая длительность: {$expectedDurationSeconds} сек.
-Фактическая длительность аудио: {$actualDurationSeconds} сек.
+        $statusLabels = [
+            'covered' => 'раскрыт',
+            'partial' => 'задет вскользь',
+            'missing' => 'не прозвучал',
+        ];
 
-Транскрипция питча:
-"{$transcription}"
+        $lines = [];
+
+        foreach ($blocks as $block) {
+            $status = $statusLabels[$block['status']] ?? $block['status'];
+            $text = trim($block['text']) !== '' ? trim($block['text']) : '(в расшифровке не найдено)';
+            $lines[] = "### {$block['title']} — {$status}\n{$text}";
+        }
+
+        $body = implode("\n\n", $lines);
+        $duration = PitchMethodology::formatDuration($actualSeconds);
+        $cutOffNote = $wasCutOff
+            ? "\nЗапись была остановлена по техническому лимиту — питч не был завершён, учтите это в обратной связи."
+            : '';
+        $fillerNote = $fillerCount >= PitchMethodology::fillerWordsNoticeThreshold()
+            ? "\nСлов-паразитов в речи: {$fillerCount}."
+            : '';
+
+        return <<<PROMPT
+Длительность питча: {$duration}.{$cutOffNote}{$fillerNote}
+
+Питч по блокам:
+
+{$body}
 PROMPT;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function responseSchema(): array
+    {
+        $criteriaProperties = [];
+        $criteriaKeys = [];
+
+        foreach (PitchMethodology::aiCriteria() as $key => $criterion) {
+            $criteriaKeys[] = $key;
+            $criteriaProperties[$key] = [
+                'type' => 'object',
+                'properties' => [
+                    'score' => [
+                        'type' => 'number',
+                        'description' => 'Оценка 0–10 по критерию «'.$criterion['title'].'»',
+                    ],
+                    'feedback' => ['type' => 'string'],
+                ],
+                'required' => ['score', 'feedback'],
+                'additionalProperties' => false,
+            ];
+        }
+
+        return [
+            'type' => 'json_schema',
+            'json_schema' => [
+                'name' => 'pitch_analysis',
+                'schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'name' => ['type' => 'string'],
+                        'summary' => ['type' => 'string'],
+                        'overallFeedback' => ['type' => 'string'],
+                        'structureFeedback' => ['type' => 'string'],
+                        'criteria' => [
+                            'type' => 'object',
+                            'properties' => $criteriaProperties,
+                            'required' => $criteriaKeys,
+                            'additionalProperties' => false,
+                        ],
+                    ],
+                    'required' => ['name', 'summary', 'overallFeedback', 'structureFeedback', 'criteria'],
+                    'additionalProperties' => false,
+                ],
+                'strict' => true,
+            ],
+        ];
     }
 }

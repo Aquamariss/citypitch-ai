@@ -6,6 +6,7 @@ import RecordingStudio from '@/Components/RecordingStudio/index.vue';
 import ScoreRing from '@/Components/ScoreRing.vue';
 import { route } from 'ziggy-js';
 import { Mic } from 'lucide-vue-next';
+import { useMethodology } from '@/lib/pitchMethodology';
 
 const formatTime = (seconds: number): string => {
     const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -26,15 +27,16 @@ const formatDate = (str: string): string => {
     }
 };
 
-const attemptScore = (attempt: any): number => attempt.score ?? (attempt.isPassed ? 70 : 35);
+const attemptScore = (attempt: any): number => attempt.score ?? 0;
 
 const page = usePage<{
-    default_duration: number;
     attempts_used: number;
     max_attempts: number;
     history_pitches: any[];
     draft_session: any;
 }>();
+
+const methodology = useMethodology();
 
 const canAttempt = computed(() => page.props.attempts_used < page.props.max_attempts);
 
@@ -94,14 +96,14 @@ const chartLinePath = computed(() => {
 
 <template>
     <AppLayout>
-        <Head :title="isStudio ? 'Студия записи — Pitch AI' : 'История — Pitch AI'" />
+        <Head :title="isStudio ? 'Студия записи — Citypitch-AI' : 'История — Citypitch-AI'" />
 
         <div v-if="activeTab === 'history'" class="page">
             <div class="page-title">
                 <div>
                     <p class="caps">Архив</p>
                     <h1>История питчей</h1>
-                    <p>{{ page.props.attempts_used }}/{{ page.props.max_attempts }} попыток · порог принятия 60%</p>
+                    <p>{{ page.props.attempts_used }}/{{ page.props.max_attempts }} попыток · порог зачёта {{ methodology.pass_threshold }}%</p>
                 </div>
                 <Link :href="route('pitch.index')" class="btn btn-primary btn-sm">
                     Новая запись
@@ -129,15 +131,14 @@ const chartLinePath = computed(() => {
                     >
                         <ScoreRing :score="attemptScore(attempt)" :label="String(Math.round(attemptScore(attempt)))" />
                         <div class="min-w-0">
-                            <h3 class="truncate">{{ attempt.name || 'Анализ питча' }}</h3>
+                            <h3 class="truncate">{{ attempt.name || 'Питч городского проекта' }}</h3>
                             <p class="meta">
                                 {{ formatTime(attempt.duration) }}
-                                · {{ attempt.media_type === 'audio' ? 'аудио' : 'видео' }}
                                 · {{ formatDate(attempt.created_at) }}
                             </p>
                         </div>
                         <span class="badge" :class="attempt.isPassed ? 'badge-success' : 'badge-danger'">
-                            {{ attempt.isPassed ? 'Принято' : 'Не принято' }}
+                            {{ attempt.isPassed ? 'Зачтено' : 'Не зачтено' }}
                         </span>
                     </Link>
                 </div>
@@ -195,11 +196,7 @@ const chartLinePath = computed(() => {
             </div>
         </div>
 
-        <RecordingStudio
-            v-else
-            :default-duration="page.props.default_duration"
-            :draft-session="page.props.draft_session"
-        />
+        <RecordingStudio v-else :draft-session="page.props.draft_session" />
     </AppLayout>
 </template>
 

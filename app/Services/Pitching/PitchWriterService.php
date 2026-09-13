@@ -9,7 +9,6 @@ use App\Repositories\Pitching\Contracts\PitchWriterSessionRepositoryInterface;
 use App\Services\Pitching\Prompts\PitchWriterPrompt;
 use Generator;
 use Illuminate\Support\Facades\Log;
-use OpenAI;
 use OpenAI\Client;
 use Throwable;
 
@@ -20,6 +19,7 @@ class PitchWriterService
         private readonly PitchWriterSessionService $pitchWriterSessionService,
         private readonly PitchWriterQuotaService $pitchWriterQuotaService,
         private readonly PitchDraftService $pitchDraftService,
+        private readonly OpenAiClientFactory $clientFactory,
     ) {}
 
     /**
@@ -111,7 +111,7 @@ class PitchWriterService
 
             if (trim($assistantText) === '' && is_array($draftPatch) && $draftPatch !== []) {
                 $labels = array_map(
-                    fn (string $key) => PitchDraftService::LABELS[$key] ?? $key,
+                    fn (string $key) => PitchDraftService::label($key),
                     array_keys($draftPatch)
                 );
                 $assistantText = 'Обновил черновик: '.implode(', ', $labels).'.';
@@ -203,7 +203,7 @@ class PitchWriterService
     private function runModelStream(array $messages): Generator
     {
         $stream = $this->client()->chat()->createStreamed([
-            'model' => config('pitching.writer_model', 'qwen3.8-27b'),
+            'model' => config('pitching.writer_model', 'gpt-4.1-mini'),
             'messages' => $messages,
             'tools' => PitchWriterPrompt::tools(),
             'tool_choice' => 'auto',
@@ -327,26 +327,6 @@ class PitchWriterService
 
     private function client(): Client
     {
-        $apiKey = config('openai.api_key');
-        $organization = config('openai.organization');
-        $project = config('openai.project');
-        $baseUri = config('openai.base_uri');
-
-        $factory = OpenAI::factory()
-            ->withApiKey(is_string($apiKey) ? $apiKey : '')
-            ->withOrganization(is_string($organization) ? $organization : null)
-            ->withHttpClient(new \GuzzleHttp\Client([
-                'timeout' => (int) config('pitching.writer_request_timeout', 120),
-            ]));
-
-        if (is_string($project)) {
-            $factory->withProject($project);
-        }
-
-        if (is_string($baseUri)) {
-            $factory->withBaseUri($baseUri);
-        }
-
-        return $factory->make();
+        return $this->clientFactory->make((int) config('pitching.writer_request_timeout', 120));
     }
 }

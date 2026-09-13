@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { ChevronDown, Lightbulb } from 'lucide-vue-next';
 import PitchRulesContent from '@/Components/PitchRulesContent.vue';
+import { useMethodology } from '@/lib/pitchMethodology';
 
 withDefaults(defineProps<{ variant?: 'both' | 'mobile' | 'desktop' }>(), { variant: 'both' });
+
+const methodology = useMethodology();
+const blockCount = computed(() => methodology.value.blocks.length);
 
 const open = ref(false);
 
@@ -23,8 +27,8 @@ const toggle = () => {
                 @click="toggle"
             >
                 <Lightbulb class="w-4 h-4 text-amber-400" :stroke-width="1.5" />
-                Памятка питчинга
-                <span class="ml-auto text-xs" :style="{ color: 'var(--text-muted)' }">6 шагов</span>
+                Структура питча
+                <span class="ml-auto text-xs" :style="{ color: 'var(--text-muted)' }">{{ blockCount }} блоков</span>
                 <ChevronDown
                     class="w-4 h-4 transition-transform duration-200"
                     :style="{ color: 'var(--text-muted)', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }"

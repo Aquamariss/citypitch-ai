@@ -48,12 +48,12 @@ const showCode = computed(() => step.value === 'code');
 
 <template>
     <div class="login-page">
-        <Head title="Вход — Pitch AI" />
+        <Head title="Вход — Citypitch-AI" />
 
         <header class="app-header app-header--standalone">
             <a class="app-brand" :href="route('login')">
                 <LogoMark :size="24" />
-                <strong>Pitch AI</strong>
+                <strong>Citypitch-AI</strong>
             </a>
             <ThemeToggle />
         </header>
@@ -61,7 +61,7 @@ const showCode = computed(() => step.value === 'code');
         <div class="login-card">
             <div class="login-brand">
                 <LogoMark :size="28" />
-                <h1>Pitch AI</h1>
+                <h1>Citypitch-AI</h1>
             </div>
 
             <form v-if="!showCode" @submit.prevent="submitEmail">

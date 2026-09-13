@@ -20,36 +20,11 @@ class PitchUploadTest extends TestCase
         Storage::fake('public');
 
         $response = $this->post(route('pitch.upload'), [
-            'video' => UploadedFile::fake()->create('pitch.webm', 100, 'video/webm'),
-            'duration' => 180,
-            'media_type' => 'video',
+            'audio' => UploadedFile::fake()->create('pitch.webm', 100, 'audio/webm'),
+            'duration' => 600,
         ]);
 
         $response->assertRedirect(route('login'));
-    }
-
-    public function test_authenticated_user_can_upload_pitch(): void
-    {
-        Bus::fake();
-        Storage::fake('public');
-
-        $user = User::factory()->create(['email' => 'student@example.com']);
-
-        $response = $this->actingAs($user)->post(route('pitch.upload'), [
-            'video' => UploadedFile::fake()->create('pitch.webm', 100, 'video/webm'),
-            'duration' => 180,
-            'media_type' => 'video',
-        ]);
-
-        $response->assertRedirect();
-
-        $this->assertDatabaseHas('pitches', [
-            'user_id' => $user->id,
-            'duration' => 180,
-            'status' => 'processing',
-        ]);
-
-        Bus::assertDispatched(ProcessPitchJob::class);
     }
 
     public function test_authenticated_user_can_upload_audio_pitch(): void
@@ -60,21 +35,73 @@ class PitchUploadTest extends TestCase
         $user = User::factory()->create(['email' => 'student@example.com']);
 
         $response = $this->actingAs($user)->post(route('pitch.upload'), [
-            'video' => UploadedFile::fake()->create('pitch.webm', 100, 'audio/webm'),
-            'duration' => 120,
-            'media_type' => 'audio',
+            'audio' => UploadedFile::fake()->create('pitch.webm', 100, 'audio/webm'),
+            'duration' => 585,
         ]);
 
         $response->assertRedirect();
 
         $this->assertDatabaseHas('pitches', [
             'user_id' => $user->id,
-            'duration' => 120,
+            'duration' => 585,
             'status' => 'processing',
-            'media_type' => 'audio',
         ]);
 
         Bus::assertDispatched(ProcessPitchJob::class);
+    }
+
+    /**
+     * Браузер пишет звук в контейнер WebM, а по содержимому он определяется
+     * как video/webm — такую запись обязаны принимать.
+     */
+    public function test_audio_recorded_into_a_webm_container_is_accepted(): void
+    {
+        Bus::fake();
+        Storage::fake('public');
+
+        $user = User::factory()->create(['email' => 'student@example.com']);
+
+        $response = $this->actingAs($user)->post(route('pitch.upload'), [
+            'audio' => UploadedFile::fake()->create('pitch.webm', 100, 'video/webm'),
+            'duration' => 585,
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $this->assertDatabaseCount('pitches', 1);
+        Bus::assertDispatched(ProcessPitchJob::class);
+    }
+
+    public function test_non_media_upload_is_rejected(): void
+    {
+        Bus::fake();
+        Storage::fake('public');
+
+        $user = User::factory()->create(['email' => 'student@example.com']);
+
+        $response = $this->actingAs($user)->post(route('pitch.upload'), [
+            'audio' => UploadedFile::fake()->create('pitch.pdf', 100, 'application/pdf'),
+            'duration' => 585,
+        ]);
+
+        $response->assertSessionHasErrors('audio');
+        $this->assertDatabaseCount('pitches', 0);
+        Bus::assertNotDispatched(ProcessPitchJob::class);
+    }
+
+    public function test_recording_longer_than_hard_limit_is_rejected(): void
+    {
+        Bus::fake();
+        Storage::fake('public');
+
+        $user = User::factory()->create(['email' => 'student@example.com']);
+
+        $response = $this->actingAs($user)->post(route('pitch.upload'), [
+            'audio' => UploadedFile::fake()->create('pitch.webm', 100, 'audio/webm'),
+            'duration' => config('pitching.max_duration_seconds') + 1,
+        ]);
+
+        $response->assertSessionHasErrors('duration');
+        $this->assertDatabaseCount('pitches', 0);
     }
 
     public function test_upload_is_blocked_when_daily_limit_reached(): void
@@ -91,13 +118,12 @@ class PitchUploadTest extends TestCase
             ]);
 
         $response = $this->actingAs($user)->post(route('pitch.upload'), [
-            'video' => UploadedFile::fake()->create('pitch.webm', 100, 'video/webm'),
-            'duration' => 180,
-            'media_type' => 'video',
+            'audio' => UploadedFile::fake()->create('pitch.webm', 100, 'audio/webm'),
+            'duration' => 600,
         ]);
 
         $response->assertRedirect();
-        $response->assertSessionHasErrors('video');
+        $response->assertSessionHasErrors('audio');
         $this->assertDatabaseCount('pitches', 5);
     }
 }

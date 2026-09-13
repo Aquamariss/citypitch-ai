@@ -20,12 +20,12 @@ class PitchWriterSessionTest extends TestCase
         $response = $this->actingAs($user)->patchJson(route('pitch-writer.draft.update'), [
             'blocks' => [
                 ...app(PitchDraftService::class)->empty(),
-                'problem' => 'Фаундеры готовят питч вслепую.',
+                'problem' => 'Команды готовят питч вслепую.',
             ],
         ]);
 
         $response->assertOk()
-            ->assertJsonPath('session.blocks.problem', 'Фаундеры готовят питч вслепую.')
+            ->assertJsonPath('session.blocks.problem', 'Команды готовят питч вслепую.')
             ->assertJsonPath('can_undo', true);
 
         $this->assertDatabaseHas('pitch_writer_sessions', [
@@ -63,11 +63,11 @@ class PitchWriterSessionTest extends TestCase
             ->postJson(route('pitch-writer.draft.import'), [
                 'blocks' => [
                     ...app(PitchDraftService::class)->empty(),
-                    'solution' => 'Pitch AI закрывает цикл подготовки.',
+                    'idea' => 'Тренажёр закрывает цикл подготовки питча.',
                 ],
             ])
             ->assertOk()
-            ->assertJsonPath('session.blocks.solution', 'Pitch AI закрывает цикл подготовки.');
+            ->assertJsonPath('session.blocks.idea', 'Тренажёр закрывает цикл подготовки питча.');
 
         $session->update([
             'blocks' => [
@@ -80,12 +80,12 @@ class PitchWriterSessionTest extends TestCase
             ->postJson(route('pitch-writer.draft.import'), [
                 'blocks' => [
                     ...app(PitchDraftService::class)->empty(),
-                    'solution' => 'Не должно примениться',
+                    'idea' => 'Не должно примениться',
                 ],
             ])
             ->assertOk()
             ->assertJsonPath('session.blocks.problem', 'Уже есть текст')
-            ->assertJsonPath('session.blocks.solution', '');
+            ->assertJsonPath('session.blocks.idea', '');
     }
 
     public function test_undo_restores_previous_blocks(): void

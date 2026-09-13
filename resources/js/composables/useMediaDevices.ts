@@ -81,7 +81,7 @@ export function useMediaDevices(options: {
 
             if (wantVideo && !defaultVideoId) {
                 initState.value = 'error';
-                error.value = 'Камера не найдена. Выберите аудио-режим или подключите камеру.';
+                error.value = 'Камера не найдена.';
 
                 return;
             }
