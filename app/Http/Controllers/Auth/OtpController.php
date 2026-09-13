@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\DTO\UserProfileDto;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\SendOtpRequest;
 use App\Http\Requests\VerifyOtpRequest;
@@ -28,17 +29,16 @@ class OtpController extends Controller
 
     public function sendCode(SendOtpRequest $request)
     {
-        $email = $request->validated('email');
+        $profile = $request->toProfile();
 
         if (! $this->otpService->isOtpRequired()) {
-            $user = $this->otpService->authenticateUser($email);
-            $this->otpService->login($user);
-            $request->session()->regenerate();
+            $this->completeLogin($request, $profile);
 
             return redirect()->intended(route('pitch.index', absolute: false));
         }
 
-        $this->otpService->sendCode($email);
+        $this->otpService->rememberPendingProfile($profile);
+        $this->otpService->sendCode($profile->email);
 
         return back()->with('status', 'code-sent');
     }
@@ -46,17 +46,23 @@ class OtpController extends Controller
     public function verifyCode(VerifyOtpRequest $request)
     {
         $email = $request->validated('email');
-        $code = $request->validated('code');
+        $profile = $this->otpService->pendingProfile($email);
 
-        if (! $this->otpService->verifyCode($email, $code)) {
+        // Анкету проверяем до кода, чтобы код не сгорел впустую.
+        if ($profile === null) {
+            return back()->withErrors([
+                'email' => 'Данные формы не сохранились — заполните её ещё раз.',
+            ]);
+        }
+
+        if (! $this->otpService->verifyCode($email, $request->validated('code'))) {
             return back()->withErrors([
                 'code' => 'Неверный или устаревший код подтверждения.',
             ]);
         }
 
-        $user = $this->otpService->authenticateUser($email);
-        $this->otpService->login($user);
-        $request->session()->regenerate();
+        $this->otpService->forgetPendingProfile();
+        $this->completeLogin($request, $profile);
 
         return redirect()->intended(route('pitch.index', absolute: false));
     }
@@ -68,5 +74,12 @@ class OtpController extends Controller
         $request->session()->regenerateToken();
 
         return redirect()->route('login');
+    }
+
+    private function completeLogin(Request $request, UserProfileDto $profile): void
+    {
+        $user = $this->otpService->authenticateUser($profile);
+        $this->otpService->login($user);
+        $request->session()->regenerate();
     }
 }
