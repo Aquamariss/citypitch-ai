@@ -1,10 +1,16 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
-import { Loader2 } from 'lucide-vue-next';
+import { Loader2, Mail, MapPin, Phone, User } from 'lucide-vue-next';
 import ThemeToggle from '@/Components/ThemeToggle.vue';
 import LogoMark from '@/Components/LogoMark.vue';
+import { formatPhone, isPhoneComplete } from '@/lib/phone';
+
+const PERSONAL_DATA_AGREEMENT_URL = 'https://cityuniversity.ru/agreement-personal-data';
+
+const CONSENT_REQUIRED_MESSAGE = 'Без согласия на обработку персональных данных войти нельзя.';
+const PHONE_INVALID_MESSAGE = 'Проверьте номер телефона: например, +7 (900) 123-45-67.';
 
 const page = usePage<{
     status: string | null;
@@ -14,11 +20,59 @@ const page = usePage<{
 
 const otpRequired = computed(() => page.props.otpRequired ?? true);
 
-const step = ref<'email' | 'code'>(page.props.status === 'code-sent' ? 'code' : 'email');
+const step = ref<'profile' | 'code'>(page.props.status === 'code-sent' ? 'code' : 'profile');
 
-const form = useForm({ email: '', code: '' });
+const form = useForm({
+    full_name: '',
+    email: '',
+    phone: '',
+    city: '',
+    personal_data_consent: false,
+    marketing_consent: false,
+    code: '',
+});
 
-const submitEmail = () => {
+// Клиентские проверки дублируют серверные, чтобы не гонять форму туда-обратно.
+const consentError = ref<string | null>(null);
+const phoneError = ref<string | null>(null);
+
+const notice = computed(() =>
+    page.props.status && page.props.status !== 'code-sent' ? page.props.status : null);
+
+const errorFor = (field: 'full_name' | 'email' | 'phone' | 'city' | 'code'): string | undefined =>
+    form.errors[field] || page.props.errors?.[field];
+
+const onPhoneInput = (event: Event) => {
+    const input = event.target as HTMLInputElement;
+    form.phone = formatPhone(input.value);
+    input.value = form.phone;
+
+    if (phoneError.value && isPhoneComplete(form.phone)) {
+        phoneError.value = null;
+    }
+};
+
+watch(() => form.personal_data_consent, (checked) => {
+    if (checked) {
+        consentError.value = null;
+    }
+});
+
+// Сервер просит заполнить анкету заново, если она не дожила до ввода кода.
+watch(() => form.errors.email, (error) => {
+    if (error && step.value === 'code') {
+        step.value = 'profile';
+    }
+});
+
+const submitProfile = () => {
+    consentError.value = form.personal_data_consent ? null : CONSENT_REQUIRED_MESSAGE;
+    phoneError.value = isPhoneComplete(form.phone) ? null : PHONE_INVALID_MESSAGE;
+
+    if (consentError.value || phoneError.value) {
+        return;
+    }
+
     form.post(route('auth.send-code'), {
         preserveScroll: true,
         onSuccess: () => {
@@ -33,10 +87,10 @@ const submitCode = () => {
     form.post(route('auth.verify-code'), { preserveScroll: true });
 };
 
-const backToEmail = () => {
+const backToProfile = () => {
     form.clearErrors();
     form.code = '';
-    step.value = 'email';
+    step.value = 'profile';
 };
 
 const onCodeInput = (event: Event) => {
@@ -53,7 +107,10 @@ const showCode = computed(() => step.value === 'code');
         <header class="app-header app-header--standalone">
             <a class="app-brand" :href="route('login')">
                 <LogoMark :size="24" />
-                <strong>Citypitch-AI</strong>
+                <span class="brand-text">
+                    <strong>Citypitch-AI</strong>
+                    <small>@ Cityuniversity 2.0</small>
+                </span>
             </a>
             <ThemeToggle />
         </header>
@@ -64,48 +121,144 @@ const showCode = computed(() => step.value === 'code');
                 <h1>Citypitch-AI</h1>
             </div>
 
-            <form v-if="!showCode" @submit.prevent="submitEmail">
-                <h2>Вход по email</h2>
+            <p v-if="notice" class="login-notice" role="status">{{ notice }}</p>
+
+            <form v-if="!showCode" novalidate @submit.prevent="submitProfile">
+                <h2>Вход в тренажёр</h2>
                 <p class="lead">
                     {{ otpRequired
-                        ? 'Без пароля. Пришлём одноразовый код для доступа к студии.'
-                        : 'Локальная разработка: введите email и войдите без кода.' }}
+                        ? 'Заполните данные — пришлём одноразовый код на email.'
+                        : 'Локальная разработка: заполните данные и войдите без кода.' }}
                 </p>
 
-                <div class="field" :class="{ 'has-error': form.errors.email }">
-                    <label for="login-email">Email</label>
+                <div class="field" :class="{ 'has-error': errorFor('full_name') }">
+                    <label for="login-full-name">ФИО</label>
                     <div class="input-wrap">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                            <rect x="3" y="5" width="18" height="14" rx="2" />
-                            <path d="m3 7 9 6 9-6" />
-                        </svg>
+                        <User :stroke-width="1.5" aria-hidden="true" />
                         <input
-                            v-model="form.email"
+                            v-model="form.full_name"
                             class="input"
-                            :class="{ 'input-error': form.errors.email }"
+                            id="login-full-name"
+                            type="text"
+                            name="full_name"
+                            placeholder="Иванова Анна Сергеевна"
+                            autocomplete="name"
+                            maxlength="255"
+                            aria-describedby="login-full-name-error"
+                        />
+                    </div>
+                    <span v-if="errorFor('full_name')" class="field-error is-visible" id="login-full-name-error" role="alert">
+                        {{ errorFor('full_name') }}
+                    </span>
+                </div>
+
+                <div class="field" :class="{ 'has-error': errorFor('email') }">
+                    <label for="login-email">Email <span class="field-required" aria-hidden="true">*</span></label>
+                    <div class="input-wrap">
+                        <Mail :stroke-width="1.5" aria-hidden="true" />
+                        <input
+                            v-model.trim="form.email"
+                            class="input"
                             id="login-email"
                             type="email"
                             name="email"
-                            placeholder="__VG_EMAIL_57af97e7feb8__"
+                            placeholder="name@example.com"
                             autocomplete="email"
                             inputmode="email"
+                            maxlength="255"
                             required
-                            autofocus
-                            aria-describedby="login-email-hint login-email-error"
+                            aria-required="true"
+                            aria-describedby="login-email-error"
                         />
                     </div>
-                    <span class="field-hint" id="login-email-hint">
-                        Используем только для входа — без рассылок.
-                    </span>
-                    <span
-                        v-if="form.errors.email || page.props.errors?.email"
-                        class="field-error is-visible"
-                        id="login-email-error"
-                        role="alert"
-                    >
-                        {{ form.errors.email || page.props.errors.email }}
+                    <span v-if="errorFor('email')" class="field-error is-visible" id="login-email-error" role="alert">
+                        {{ errorFor('email') }}
                     </span>
                 </div>
+
+                <div class="field" :class="{ 'has-error': phoneError || errorFor('phone') }">
+                    <label for="login-phone">Телефон <span class="field-required" aria-hidden="true">*</span></label>
+                    <div class="input-wrap">
+                        <Phone :stroke-width="1.5" aria-hidden="true" />
+                        <input
+                            :value="form.phone"
+                            class="input"
+                            id="login-phone"
+                            type="tel"
+                            name="phone"
+                            placeholder="+7 (900) 123-45-67"
+                            autocomplete="tel"
+                            inputmode="tel"
+                            required
+                            aria-required="true"
+                            aria-describedby="login-phone-hint login-phone-error"
+                            @input="onPhoneInput"
+                        />
+                    </div>
+                    <span class="field-hint" id="login-phone-hint">
+                        Номер другой страны начните с «+» и кода страны.
+                    </span>
+                    <span v-if="phoneError || errorFor('phone')" class="field-error is-visible" id="login-phone-error" role="alert">
+                        {{ phoneError || errorFor('phone') }}
+                    </span>
+                </div>
+
+                <div class="field" :class="{ 'has-error': errorFor('city') }">
+                    <label for="login-city">Город</label>
+                    <div class="input-wrap">
+                        <MapPin :stroke-width="1.5" aria-hidden="true" />
+                        <input
+                            v-model="form.city"
+                            class="input"
+                            id="login-city"
+                            type="text"
+                            name="city"
+                            placeholder="Кемерово"
+                            autocomplete="address-level2"
+                            maxlength="255"
+                            aria-describedby="login-city-error"
+                        />
+                    </div>
+                    <span v-if="errorFor('city')" class="field-error is-visible" id="login-city-error" role="alert">
+                        {{ errorFor('city') }}
+                    </span>
+                </div>
+
+                <div class="consents">
+                    <div>
+                        <label class="consent">
+                            <input
+                                v-model="form.personal_data_consent"
+                                type="checkbox"
+                                name="personal_data_consent"
+                                aria-required="true"
+                                aria-describedby="login-consent-error"
+                            />
+                            <span>
+                                Я даю
+                                <a :href="PERSONAL_DATA_AGREEMENT_URL" target="_blank" rel="noopener noreferrer">
+                                    согласие на обработку персональных данных</a>
+                                в соответствии с политикой обработки и политикой конфиденциальности
+                                персональных данных <span class="field-required" aria-hidden="true">*</span>
+                            </span>
+                        </label>
+                        <span
+                            v-if="consentError || form.errors.personal_data_consent"
+                            class="field-error is-visible"
+                            id="login-consent-error"
+                            role="alert"
+                        >
+                            {{ consentError || form.errors.personal_data_consent }}
+                        </span>
+                    </div>
+
+                    <label class="consent">
+                        <input v-model="form.marketing_consent" type="checkbox" name="marketing_consent" />
+                        <span>Я даю согласие на получение рекламных сообщений</span>
+                    </label>
+                </div>
+
+                <p class="login-required-note"><span class="field-required" aria-hidden="true">*</span> — обязательно</p>
 
                 <div class="login-actions">
                     <button type="submit" class="btn btn-primary" :disabled="form.processing">
@@ -122,12 +275,12 @@ const showCode = computed(() => step.value === 'code');
                     Шестизначный код отправлен на <strong>{{ form.email || 'ваш email' }}</strong>. Действует 10 минут.
                 </p>
 
-                <div class="field" :class="{ 'has-error': form.errors.code }">
+                <div class="field" :class="{ 'has-error': errorFor('code') }">
                     <label for="login-code">Код из письма</label>
                     <input
                         :value="form.code"
                         class="input code"
-                        :class="{ 'input-error': form.errors.code }"
+                        :class="{ 'input-error': errorFor('code') }"
                         id="login-code"
                         type="text"
                         name="code"
@@ -140,13 +293,8 @@ const showCode = computed(() => step.value === 'code');
                         aria-describedby="login-code-error"
                         @input="onCodeInput"
                     />
-                    <span
-                        v-if="form.errors.code || page.props.errors?.code"
-                        class="field-error is-visible"
-                        id="login-code-error"
-                        role="alert"
-                    >
-                        {{ form.errors.code || page.props.errors.code }}
+                    <span v-if="errorFor('code')" class="field-error is-visible" id="login-code-error" role="alert">
+                        {{ errorFor('code') }}
                     </span>
                 </div>
 
@@ -155,8 +303,8 @@ const showCode = computed(() => step.value === 'code');
                         <Loader2 v-if="form.processing" class="w-4 h-4 animate-spin" />
                         <template v-else>Войти</template>
                     </button>
-                    <button type="button" class="btn btn-secondary" @click="backToEmail">
-                        Изменить email
+                    <button type="button" class="btn btn-secondary" @click="backToProfile">
+                        Изменить данные
                     </button>
                 </div>
                 <p class="login-meta">Не пришло? Проверьте спам или запросите код снова через 30 сек.</p>

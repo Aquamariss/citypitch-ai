@@ -2,6 +2,7 @@
 
 namespace App\Services\Auth;
 
+use App\DTO\UserProfileDto;
 use App\Mail\OtpCodeMail;
 use App\Models\User;
 use App\Repositories\Auth\Contracts\UserRepositoryInterface;
@@ -11,6 +12,11 @@ use Illuminate\Support\Facades\Mail;
 
 class OtpService
 {
+    /**
+     * Анкета ждёт в сессии, пока пользователь не введёт код из письма.
+     */
+    public const PENDING_PROFILE_KEY = 'auth.pending_profile';
+
     public function __construct(
         private UserRepositoryInterface $userRepository,
     ) {}
@@ -42,14 +48,44 @@ class OtpService
         return true;
     }
 
-    public function authenticateUser(string $email): User
+    public function rememberPendingProfile(UserProfileDto $profile): void
     {
-        return $this->userRepository->findOrCreateByEmail($email);
+        session()->put(self::PENDING_PROFILE_KEY, $profile->toArray());
     }
 
+    /**
+     * Анкета, заполненная для этого email на первом шаге входа.
+     */
+    public function pendingProfile(string $email): ?UserProfileDto
+    {
+        $data = session()->get(self::PENDING_PROFILE_KEY);
+
+        if (! is_array($data) || ($data['email'] ?? null) !== $email) {
+            return null;
+        }
+
+        return UserProfileDto::fromArray($data);
+    }
+
+    public function forgetPendingProfile(): void
+    {
+        session()->forget(self::PENDING_PROFILE_KEY);
+    }
+
+    public function authenticateUser(UserProfileDto $profile): User
+    {
+        $user = $this->userRepository->findOrCreateByEmail($profile->email);
+
+        return $this->userRepository->saveProfile($user, $profile);
+    }
+
+    /**
+     * Пользователь запоминается: следующие визиты в пределах срока
+     * auth.guards.web.remember проходят без формы входа.
+     */
     public function login(User $user): void
     {
-        Auth::login($user);
+        Auth::login($user, remember: true);
     }
 
     public function logout(): void

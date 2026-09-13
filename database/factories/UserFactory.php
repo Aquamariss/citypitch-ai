@@ -16,8 +16,13 @@ class UserFactory extends Factory
     public function definition(): array
     {
         return [
+            'full_name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
+            'phone' => '+7900'.fake()->numerify('#######'),
+            'city' => fake()->city(),
             'email_verified_at' => now(),
+            'personal_data_consent_at' => now(),
+            'marketing_consent_at' => null,
         ];
     }
 
@@ -25,6 +30,17 @@ class UserFactory extends Factory
     {
         return $this->state(fn () => [
             'email_verified_at' => null,
+        ]);
+    }
+
+    /**
+     * Пользователь из времён до анкеты: без телефона и согласия.
+     */
+    public function withoutConsent(): static
+    {
+        return $this->state(fn () => [
+            'phone' => null,
+            'personal_data_consent_at' => null,
         ]);
     }
 }

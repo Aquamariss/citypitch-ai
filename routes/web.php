@@ -10,7 +10,7 @@ Route::post('/auth/send-code', [OtpController::class, 'sendCode'])->name('auth.s
 Route::post('/auth/verify-code', [OtpController::class, 'verifyCode'])->name('auth.verify-code')->middleware('throttle:5,1');
 Route::post('/auth/logout', [OtpController::class, 'logout'])->name('auth.logout')->middleware('auth');
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'consent'])->group(function () {
     Route::get('/', function () {
         return redirect()->route('pitch.index');
     });

@@ -11,6 +11,17 @@ class VerifyOtpRequest extends FormRequest
         return true;
     }
 
+    /**
+     * Email приводится к нижнему регистру так же, как при отправке кода, —
+     * иначе код, сохранённый под другим регистром, не найдётся.
+     */
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'email' => mb_strtolower(trim((string) $this->input('email', ''))),
+        ]);
+    }
+
     public function rules(): array
     {
         return [
