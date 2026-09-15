@@ -34,7 +34,8 @@ class OtpAuthenticationTest extends TestCase
             OtpService::PENDING_PROFILE_KEY,
             fn (array $profile) => $profile['email'] === 'student@example.com'
                 && $profile['phone'] === '+79001234567'
-                && $profile['city'] === 'Кемерово',
+                && $profile['city'] === 'Кемерово'
+                && $profile['messenger'] === '@anna_sokolova',
         );
         Mail::assertSent(OtpCodeMail::class, function (OtpCodeMail $mail) {
             return strlen($mail->code) === 6;
@@ -67,7 +68,7 @@ class OtpAuthenticationTest extends TestCase
         Mail::assertNothingSent();
     }
 
-    public function test_full_name_city_and_marketing_consent_are_optional(): void
+    public function test_full_name_messenger_city_and_marketing_consent_are_optional(): void
     {
         Mail::fake();
 
@@ -141,6 +142,7 @@ class OtpAuthenticationTest extends TestCase
         $this->assertSame('Анна Соколова', $user->full_name);
         $this->assertSame('+79001234567', $user->phone);
         $this->assertSame('Кемерово', $user->city);
+        $this->assertSame('@anna_sokolova', $user->messenger);
         $this->assertNotNull($user->email_verified_at);
         $this->assertNotNull($user->personal_data_consent_at);
         $this->assertNotNull($user->marketing_consent_at);
@@ -165,6 +167,7 @@ class OtpAuthenticationTest extends TestCase
         $user = User::factory()->create([
             'email' => 'student@example.com',
             'city' => 'Новокузнецк',
+            'messenger' => '@old_contact',
             'marketing_consent_at' => now()->subMonth(),
         ]);
         Cache::put('otp_student@example.com', '123456', now()->addMinutes(10));
@@ -172,6 +175,7 @@ class OtpAuthenticationTest extends TestCase
         $response = $this
             ->withSession([OtpService::PENDING_PROFILE_KEY => $this->pendingProfile([
                 'city' => null,
+                'messenger' => null,
                 'marketing_consent' => false,
             ])])
             ->post(route('auth.verify-code'), [
@@ -186,6 +190,7 @@ class OtpAuthenticationTest extends TestCase
         $user->refresh();
 
         $this->assertSame('Новокузнецк', $user->city, 'Пустое необязательное поле не затирает сохранённое.');
+        $this->assertSame('@old_contact', $user->messenger, 'Пустой контакт не затирает сохранённый.');
         $this->assertNull($user->marketing_consent_at, 'Снятая галка отзывает согласие на рекламу.');
     }
 
@@ -311,6 +316,7 @@ class OtpAuthenticationTest extends TestCase
             'email' => 'student@example.com',
             'phone' => '+7 (900) 123-45-67',
             'city' => 'Кемерово',
+            'messenger' => '@anna_sokolova',
             'personal_data_consent' => true,
             'marketing_consent' => false,
         ], $overrides);
@@ -327,6 +333,7 @@ class OtpAuthenticationTest extends TestCase
             'phone' => '+79001234567',
             'full_name' => 'Анна Соколова',
             'city' => 'Кемерово',
+            'messenger' => '@anna_sokolova',
             'marketing_consent' => false,
         ], $overrides);
     }

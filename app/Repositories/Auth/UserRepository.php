@@ -33,6 +33,7 @@ class UserRepository implements UserRepositoryInterface
             'full_name' => $profile->fullName ?? $user->full_name,
             'phone' => $profile->phone,
             'city' => $profile->city ?? $user->city,
+            'messenger' => $profile->messenger ?? $user->messenger,
             'personal_data_consent_at' => now(),
             'marketing_consent_at' => $profile->marketingConsent ? now() : null,
         ]);

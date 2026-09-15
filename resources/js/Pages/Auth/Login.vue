@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
-import { Loader2, Mail, MapPin, Phone, User } from 'lucide-vue-next';
+import { Loader2, Mail, MapPin, MessageCircle, Phone, User } from 'lucide-vue-next';
 import ThemeToggle from '@/Components/ThemeToggle.vue';
 import LogoMark from '@/Components/LogoMark.vue';
 import { formatPhone, isPhoneComplete } from '@/lib/phone';
@@ -27,6 +27,7 @@ const form = useForm({
     email: '',
     phone: '',
     city: '',
+    messenger: '',
     personal_data_consent: false,
     marketing_consent: false,
     code: '',
@@ -39,7 +40,7 @@ const phoneError = ref<string | null>(null);
 const notice = computed(() =>
     page.props.status && page.props.status !== 'code-sent' ? page.props.status : null);
 
-const errorFor = (field: 'full_name' | 'email' | 'phone' | 'city' | 'code'): string | undefined =>
+const errorFor = (field: 'full_name' | 'email' | 'phone' | 'messenger' | 'city' | 'code'): string | undefined =>
     form.errors[field] || page.props.errors?.[field];
 
 const onPhoneInput = (event: Event) => {
@@ -200,6 +201,29 @@ const showCode = computed(() => step.value === 'code');
                     </span>
                     <span v-if="phoneError || errorFor('phone')" class="field-error is-visible" id="login-phone-error" role="alert">
                         {{ phoneError || errorFor('phone') }}
+                    </span>
+                </div>
+
+                <div class="field" :class="{ 'has-error': errorFor('messenger') }">
+                    <label for="login-messenger">Telegram или MAX для связи</label>
+                    <div class="input-wrap">
+                        <MessageCircle :stroke-width="1.5" aria-hidden="true" />
+                        <input
+                            v-model="form.messenger"
+                            class="input"
+                            id="login-messenger"
+                            type="text"
+                            name="messenger"
+                            placeholder="@username или ссылка на профиль"
+                            autocomplete="off"
+                            autocapitalize="off"
+                            spellcheck="false"
+                            maxlength="255"
+                            aria-describedby="login-messenger-error"
+                        />
+                    </div>
+                    <span v-if="errorFor('messenger')" class="field-error is-visible" id="login-messenger-error" role="alert">
+                        {{ errorFor('messenger') }}
                     </span>
                 </div>
 
