@@ -15,6 +15,7 @@ use Illuminate\Notifications\Notifiable;
     'full_name',
     'phone',
     'city',
+    'messenger',
     'personal_data_consent_at',
     'marketing_consent_at',
 ])]

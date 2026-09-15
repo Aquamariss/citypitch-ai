@@ -20,6 +20,7 @@ class UserFactory extends Factory
             'email' => fake()->unique()->safeEmail(),
             'phone' => '+7900'.fake()->numerify('#######'),
             'city' => fake()->city(),
+            'messenger' => '@'.fake()->userName(),
             'email_verified_at' => now(),
             'personal_data_consent_at' => now(),
             'marketing_consent_at' => null,

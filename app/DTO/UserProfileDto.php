@@ -16,11 +16,12 @@ readonly class UserProfileDto
         public string $phone,
         public ?string $fullName,
         public ?string $city,
+        public ?string $messenger,
         public bool $marketingConsent,
     ) {}
 
     /**
-     * @return array{email: string, phone: string, full_name: string|null, city: string|null, marketing_consent: bool}
+     * @return array{email: string, phone: string, full_name: string|null, city: string|null, messenger: string|null, marketing_consent: bool}
      */
     public function toArray(): array
     {
@@ -29,6 +30,7 @@ readonly class UserProfileDto
             'phone' => $this->phone,
             'full_name' => $this->fullName,
             'city' => $this->city,
+            'messenger' => $this->messenger,
             'marketing_consent' => $this->marketingConsent,
         ];
     }
@@ -43,6 +45,7 @@ readonly class UserProfileDto
             phone: (string) ($data['phone'] ?? ''),
             fullName: isset($data['full_name']) ? (string) $data['full_name'] : null,
             city: isset($data['city']) ? (string) $data['city'] : null,
+            messenger: isset($data['messenger']) ? (string) $data['messenger'] : null,
             marketingConsent: (bool) ($data['marketing_consent'] ?? false),
         );
     }

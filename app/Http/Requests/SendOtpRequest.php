@@ -25,6 +25,7 @@ class SendOtpRequest extends FormRequest
             'phone' => $this->normalizePhone((string) $this->input('phone', '')),
             'full_name' => $this->nullableTrimmed('full_name'),
             'city' => $this->nullableTrimmed('city'),
+            'messenger' => $this->nullableTrimmed('messenger'),
         ]);
     }
 
@@ -38,6 +39,8 @@ class SendOtpRequest extends FormRequest
             'email' => ['required', 'string', 'email:rfc', 'max:255'],
             'phone' => ['required', 'string', 'regex:'.self::PHONE_PATTERN],
             'city' => ['nullable', 'string', 'max:255'],
+            // Ник, ссылка или номер в Telegram или MAX — формат не навязываем.
+            'messenger' => ['nullable', 'string', 'max:255'],
             'personal_data_consent' => ['accepted'],
             'marketing_consent' => ['nullable', 'boolean'],
         ];
@@ -53,6 +56,7 @@ class SendOtpRequest extends FormRequest
             'email.email' => 'Проверьте email — похоже, в нём ошибка.',
             'phone.required' => 'Укажите номер телефона.',
             'phone.regex' => 'Проверьте номер телефона: например, +7 (900) 123-45-67.',
+            'messenger.max' => 'Слишком длинный контакт — укажите ник или ссылку на профиль.',
             'personal_data_consent.accepted' => 'Без согласия на обработку персональных данных войти нельзя.',
         ];
     }
@@ -64,6 +68,7 @@ class SendOtpRequest extends FormRequest
             phone: $this->validated('phone'),
             fullName: $this->validated('full_name'),
             city: $this->validated('city'),
+            messenger: $this->validated('messenger'),
             marketingConsent: $this->boolean('marketing_consent'),
         );
     }
